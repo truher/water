@@ -148,7 +148,7 @@ while True:
 
     transfer(DIAGNOSTIC_REQUEST)
     diagnostic = transfer(NOP_REQUEST)
-#                            5432109876543210
+#                              5432109876543210
     comp_high = diagnostic & 0b0000100000000000
     comp_low  = diagnostic & 0b0000010000000000
     cof       = diagnostic & 0b0000001000000000
