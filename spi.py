@@ -1,7 +1,8 @@
 """
 Decode and log angular data from AMS AS5048A
 """
-import spidev
+import spidev # type: ignore
+from typing import List
 
 # AMS AS5048A encoder
 
@@ -33,13 +34,13 @@ import spidev
 # note that nop is exactly 0x0000 even though it's a "read"
 
 # even parity == make the number of 1's even
-#                      PR<----addr---->
-#                      5432109876543210
-NOP_REQUEST        = 0b0000000000000000
-ERR_REQUEST        = 0b0100000000000001
-DIAGNOSTIC_REQUEST = 0b0111111111111101
-MAGNITUDE_REQUEST  = 0b0111111111111110
-ANGLE_READ_REQUEST = 0b1111111111111111
+#                           PR<----addr---->
+#                           5432109876543210
+NOP_REQUEST: int        = 0b0000000000000000
+ERR_REQUEST: int        = 0b0100000000000001
+DIAGNOSTIC_REQUEST: int = 0b0111111111111101
+MAGNITUDE_REQUEST: int  = 0b0111111111111110
+ANGLE_READ_REQUEST: int = 0b1111111111111111
 
 # read response comes in the subsequent message
 
@@ -73,28 +74,28 @@ spi.mode = 1
 # == the usual python nightmare
 # spi.cshigh = False
 
-def has_even_parity(message):
+def has_even_parity(message: int) -> bool:
     """
     return true if message has even parity
     """
-    parity_is_even = True
+    parity_is_even: bool = True
     while message:
-        parity_is_even = ~parity_is_even
+        parity_is_even = not(parity_is_even)
         message = message & (message - 1)
     return parity_is_even
 
-def transfer(req):
+def transfer(req: int) -> int:
     """
     SPI transfer request, read and return response, check parity
     """
-    reqh = (req >> 8) & 0xff
-    reql = req & 0xff
-    res_list = spi.xfer2([reqh, reql])
+    reqh: int = (req >> 8) & 0xff
+    reql: int = req & 0xff
+    res_list: List[int] = spi.xfer2([reqh, reql])
     # print(f"response length {len(res_list)}")
-    res = ((res_list[0] & 0xff) << 8) + (res_list[1] & 0xff)
+    res: int = ((res_list[0] & 0xff) << 8) + (res_list[1] & 0xff)
     if not has_even_parity(res):
         print ("parity error!")
-    err = res & 0b0100000000000000
+    err: int = res & 0b0100000000000000
     if err:
         print ("err flag set!")
         # try to clear it
@@ -102,11 +103,11 @@ def transfer(req):
         spi.xfer2([((ERR_REQUEST >> 8) & 0xff), ERR_REQUEST & 0xff])
     return res
 
-def transfer_and_log(name, req):
+def transfer_and_log(name: str, req: int) -> int:
     """
     transmit request, read and return response, also log both
     """
-    res = transfer(req)
+    res: int = transfer(req)
     print()
     print(name)
     print("5432109876543210    5432109876543210")
@@ -133,26 +134,26 @@ transfer_and_log("nop", NOP_REQUEST)
 
 print("try decoding the angle")
 transfer(ANGLE_READ_REQUEST)
-#                                 5432109876543210
-angle = transfer(NOP_REQUEST) & 0b0011111111111111
-print(f"angle: {angle}")
+#                                          5432109876543210
+try_angle: int = transfer(NOP_REQUEST) & 0b0011111111111111
+print(f"try_angle: {angle}")
 
 while True:
     transfer(ANGLE_READ_REQUEST)
-#                                     5432109876543210
-    angle = transfer(NOP_REQUEST) & 0b0011111111111111
+#                                          5432109876543210
+    angle: int = transfer(NOP_REQUEST) & 0b0011111111111111
 
     transfer(MAGNITUDE_REQUEST)
-#                                         5432109876543210
-    magnitude = transfer(NOP_REQUEST) & 0b0011111111111111
+#                                              5432109876543210
+    magnitude: int = transfer(NOP_REQUEST) & 0b0011111111111111
 
     transfer(DIAGNOSTIC_REQUEST)
-    diagnostic = transfer(NOP_REQUEST)
-#                              5432109876543210
-    comp_high = diagnostic & 0b0000100000000000
-    comp_low  = diagnostic & 0b0000010000000000
-    cof       = diagnostic & 0b0000001000000000
-    ocf       = diagnostic & 0b0000000100000000
+    diagnostic: int = transfer(NOP_REQUEST)
+#                                   5432109876543210
+    comp_high: int = diagnostic & 0b0000100000000000
+    comp_low: int  = diagnostic & 0b0000010000000000
+    cof: int       = diagnostic & 0b0000001000000000
+    ocf: int       = diagnostic & 0b0000000100000000
 
     print(f"angle: {angle:5} magnitude: {magnitude:5} "
            "{comp_high>0:d} {comp_low>0:d} {cof>0:d} {ocf>0:d}")
