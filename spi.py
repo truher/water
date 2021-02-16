@@ -1,3 +1,8 @@
+"""
+Decode and log angular data from AMS AS5048A
+"""
+import spidev
+
 # AMS AS5048A encoder
 
 # from datasheet
@@ -30,15 +35,14 @@
 # even parity == make the number of 1's even
 #                      PR<----addr---->
 #                      5432109876543210
-nop_request        = 0b0000000000000000
-err_request        = 0b0100000000000001
-diagnostic_request = 0b0111111111111101
-magnitude_request  = 0b0111111111111110
-angle_read_request = 0b1111111111111111
+NOP_REQUEST        = 0b0000000000000000
+ERR_REQUEST        = 0b0100000000000001
+DIAGNOSTIC_REQUEST = 0b0111111111111101
+MAGNITUDE_REQUEST  = 0b0111111111111110
+ANGLE_READ_REQUEST = 0b1111111111111111
 
 # read response comes in the subsequent message
 
-import spidev
 spi = spidev.SpiDev()
 spi.open(0, 0) # bus,device
 #spi.open(0, 1) # bus,device
@@ -64,82 +68,91 @@ spi.max_speed_hz = 1000000
 spi.mode = 1
 # this doesn't work
 # spi.bits_per_word = 16
-# this doesn't work 
+# this doesn't work
 # https://www.raspberrypi.org/forums/viewtopic.php?t=284134
 # == the usual python nightmare
 # spi.cshigh = False
 
-def has_even_parity(n):
-  p = True
-  while n:
-    p = ~p
-    n = n & (n - 1)
-  return p
-  
-def xff(req):
-  reqh = (req >> 8) & 0xff
-  reql = req & 0xff
-  res_list = spi.xfer2([reqh, reql])
-  # print(f"response length {len(res_list)}")
-  res = ((res_list[0] & 0xff) << 8) + (res_list[1] & 0xff)
-  if not has_even_parity(res):
-    print ("parity error!")
-  err = res & 0b0100000000000000
-  if err:
-    print ("err flag set!")
-    # try to clear it
-    # TODO: some sort of exception?
-    spi.xfer2([((err_request >> 8) & 0xff), err_request & 0xff])
-  return res
+def has_even_parity(message):
+    """
+    return true if message has even parity
+    """
+    parity_is_even = True
+    while message:
+        parity_is_even = ~parity_is_even
+        message = message & (message - 1)
+    return parity_is_even
 
-def xf(name, req):
-  res = xff(req)
-  print()
-  print(name)
-  print("5432109876543210    5432109876543210")
-  print(f"{req:016b} => {res:016b}")
-  return res
+def transfer(req):
+    """
+    SPI transfer request, read and return response, check parity
+    """
+    reqh = (req >> 8) & 0xff
+    reql = req & 0xff
+    res_list = spi.xfer2([reqh, reql])
+    # print(f"response length {len(res_list)}")
+    res = ((res_list[0] & 0xff) << 8) + (res_list[1] & 0xff)
+    if not has_even_parity(res):
+        print ("parity error!")
+    err = res & 0b0100000000000000
+    if err:
+        print ("err flag set!")
+        # try to clear it
+        # TODO: some sort of exception?
+        spi.xfer2([((ERR_REQUEST >> 8) & 0xff), ERR_REQUEST & 0xff])
+    return res
 
-xf("nop", nop_request)
-xf("nop", nop_request)
+def transfer_and_log(name, req):
+    """
+    transmit request, read and return response, also log both
+    """
+    res = transfer(req)
+    print()
+    print(name)
+    print("5432109876543210    5432109876543210")
+    print(f"{req:016b} => {res:016b}")
+    return res
 
-#xf("random1", 1234)
-#xf("random2", 5678)
+transfer_and_log("nop", NOP_REQUEST)
+transfer_and_log("nop", NOP_REQUEST)
 
-xf("err", err_request)
-xf("nop", nop_request)
+#transfer_and_log("random1", 1234)
+#transfer_and_log("random2", 5678)
 
-xf("angle", angle_read_request)
-xf("nop", nop_request)
+transfer_and_log("err", ERR_REQUEST)
+transfer_and_log("nop", NOP_REQUEST)
 
-xf("magnitude", magnitude_request)
-xf("nop", nop_request)
+transfer_and_log("angle", ANGLE_READ_REQUEST)
+transfer_and_log("nop", NOP_REQUEST)
 
-xf("diagnostic", diagnostic_request)
-xf("nop", nop_request)
+transfer_and_log("magnitude", MAGNITUDE_REQUEST)
+transfer_and_log("nop", NOP_REQUEST)
+
+transfer_and_log("diagnostic", DIAGNOSTIC_REQUEST)
+transfer_and_log("nop", NOP_REQUEST)
 
 print("try decoding the angle")
-xff(angle_read_request)
-#                            5432109876543210
-angle = xff(nop_request) & 0b0011111111111111
+transfer(ANGLE_READ_REQUEST)
+#                                 5432109876543210
+angle = transfer(NOP_REQUEST) & 0b0011111111111111
 print(f"angle: {angle}")
 
 while True:
-  xff(angle_read_request)
-#                              5432109876543210
-  angle = xff(nop_request) & 0b0011111111111111
+    transfer(ANGLE_READ_REQUEST)
+#                                     5432109876543210
+    angle = transfer(NOP_REQUEST) & 0b0011111111111111
 
-  xff(magnitude_request)
-#                                  5432109876543210
-  magnitude = xff(nop_request) & 0b0011111111111111
+    transfer(MAGNITUDE_REQUEST)
+#                                         5432109876543210
+    magnitude = transfer(NOP_REQUEST) & 0b0011111111111111
 
-  xff(diagnostic_request)
-  diagnostic = xff(nop_request)
+    transfer(DIAGNOSTIC_REQUEST)
+    diagnostic = transfer(NOP_REQUEST)
 #                            5432109876543210
-  comp_high = diagnostic & 0b0000100000000000
-  comp_low  = diagnostic & 0b0000010000000000
-  cof       = diagnostic & 0b0000001000000000
-  ocf       = diagnostic & 0b0000000100000000
+    comp_high = diagnostic & 0b0000100000000000
+    comp_low  = diagnostic & 0b0000010000000000
+    cof       = diagnostic & 0b0000001000000000
+    ocf       = diagnostic & 0b0000000100000000
 
-  print(f"angle: {angle:5} magnitude: {magnitude:5} {comp_high>0:d} {comp_low>0:d} {cof>0:d} {ocf>0:d}")
-
+    print(f"angle: {angle:5} magnitude: {magnitude:5} "
+           "{comp_high>0:d} {comp_low>0:d} {cof>0:d} {ocf>0:d}")
