@@ -5,8 +5,6 @@ import lib
 
 class FakeSpiDev:
     """Fake spidev"""
-    def __init__(self) -> None:
-        self.mode = -1
     def xfer2(self, req: List[int]) -> List[int]:
         """Fake transfer method"""
         return [0, 0]
@@ -22,8 +20,6 @@ class TestLib(unittest.TestCase):
         """Test sensor."""
         fsd: FakeSpiDev = FakeSpiDev()
         sensor = lib.Sensor(fsd)
-        self.assertEqual(-1, fsd.mode)
-        self.assertEqual(-1, sensor.spi.mode)
         response = sensor.transfer(-2)
         self.assertEqual(-1, response)
 

@@ -56,22 +56,22 @@ def main() -> None:
 
     print("try decoding the angle")
     sensor.transfer(lib.ANGLE_READ_REQUEST)
-    #                                          5432109876543210
+    #                                                     5432109876543210
     try_angle: int = sensor.transfer(lib.NOP_REQUEST) & 0b0011111111111111
     print(f"try_angle: {try_angle}")
 
     while True:
         sensor.transfer(lib.ANGLE_READ_REQUEST)
-    #                                          5432109876543210
+        #                                                 5432109876543210
         angle: int = sensor.transfer(lib.NOP_REQUEST) & 0b0011111111111111
 
         sensor.transfer(lib.MAGNITUDE_REQUEST)
-    #                                              5432109876543210
+        #                                                     5432109876543210
         magnitude: int = sensor.transfer(lib.NOP_REQUEST) & 0b0011111111111111
 
         sensor.transfer(lib.DIAGNOSTIC_REQUEST)
         diagnostic: int = sensor.transfer(lib.NOP_REQUEST)
-    #                                   5432109876543210
+        #                               5432109876543210
         comp_high: int = diagnostic & 0b0000100000000000
         comp_low: int  = diagnostic & 0b0000010000000000
         cof: int       = diagnostic & 0b0000001000000000
