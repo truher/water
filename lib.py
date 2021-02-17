@@ -57,6 +57,12 @@ def log(angle: int, magnitude: int, comp_high: int, comp_low: int,
     print(f"angle: {angle:5} magnitude: {magnitude:5} "
            "{comp_high>0:d} {comp_low>0:d} {cof>0:d} {ocf>0:d}")
 
+class ResponseLengthException(Exception):
+    pass
+
+class ResponseParityException(Exception):
+    pass
+
 class Sensor:
     """Wrapper for talking to the sensor."""
     def __init__(self, spi: Any) -> None:
@@ -67,12 +73,15 @@ class Sensor:
         """SPI transfer request, read and return response, check parity."""
         reqh: int = (req >> 8) & 0xff
         reql: int = req & 0xff
+
         res_list: List[int] = self.spi.xfer2([reqh, reql])
-        # print(f"response length {len(res_list)}")
-        # TODO: check list length
+        if len(res_list) != 2:
+            raise ResponseLengthException(f"response length {len(res_list)}")
+
         res: int = ((res_list[0] & 0xff) << 8) + (res_list[1] & 0xff)
         if not has_even_parity(res):
-            print ("parity error!")
+            raise ResponseParityException()
+
         err: int = res & 0b0100000000000000
         if err:
             print ("err flag set!")
