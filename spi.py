@@ -60,6 +60,10 @@ def main() -> None:
     try_angle: int = sensor.transfer(lib.NOP_REQUEST) & 0b0011111111111111
     print(f"try_angle: {try_angle}")
 
+    # this is currently six transfers per loop, but that's just for
+    # testing.
+    # TODO: make some sort of "calibration" loop that's separate?
+    # TODO: make the prod loop just one transfer (angle)
     while True:
         try:
             sensor.transfer(lib.ANGLE_READ_REQUEST)

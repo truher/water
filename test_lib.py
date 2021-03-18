@@ -3,24 +3,21 @@ from typing import List
 import unittest
 import lib
 
+#pylint: disable=no-self-use, unused-argument, missing-function-docstring, missing-class-docstring, too-few-public-methods
 class FakeSpiDev:
-    """Fake spidev"""
     def xfer2(self, req: List[int]) -> List[int]:
-        """Fake transfer method"""
         return [0, 0]
 
 
 
 
+#pylint: disable=no-self-use, unused-argument, missing-function-docstring, missing-class-docstring, too-few-public-methods
 class TestLib(unittest.TestCase):
-    """Contains test cases."""
     def test_parity(self) -> None:
-        """Test parity."""
         self.assertEqual(True, lib.has_even_parity(0))
         self.assertEqual(False, lib.has_even_parity(1))
 
     def test_sensor(self) -> None:
-        """Test sensor."""
         fsd: FakeSpiDev = FakeSpiDev()
         sensor = lib.Sensor(fsd)
         response = sensor.transfer(-2)
