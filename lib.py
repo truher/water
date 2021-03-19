@@ -50,11 +50,15 @@ def has_even_parity(message: int) -> bool:
         message = message & (message - 1)
     return parity_is_even
 
+def log_angle(angle: int) -> None:
+    """Log an angle."""
+    #pylint: disable=unused-argument, too-many-arguments
+    print(f"angle: {angle:5}")
+
 def log(angle: int, magnitude: int, comp_high: int, comp_low: int,
         cof: int, ocf: int) -> None:
     """Log an observation."""
-    #pylint: disable=unused-argument
-    #pylint: disable=too-many-arguments
+    #pylint: disable=unused-argument, too-many-arguments
     print(f"angle: {angle:5} magnitude: {magnitude:5} "
            "{comp_high>0:d} {comp_low>0:d} {cof>0:d} {ocf>0:d}")
 
