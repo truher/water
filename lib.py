@@ -1,4 +1,5 @@
 """Library for water logging."""
+from datetime import datetime
 from typing import Any, List
 
 # AMS AS5048A encoder
@@ -52,15 +53,17 @@ def has_even_parity(message: int) -> bool:
 
 def log_angle(angle: int) -> None:
     """Log an angle."""
+    now_s: str = datetime.now().isoformat(timespec='microseconds')
     #pylint: disable=unused-argument, too-many-arguments
-    print(f"angle: {angle:5}")
+    print(f"{now_s}: {angle:5}")
 
+#pylint: disable=unused-argument, too-many-arguments
 def log(angle: int, magnitude: int, comp_high: int, comp_low: int,
         cof: int, ocf: int) -> None:
     """Log an observation."""
-    #pylint: disable=unused-argument, too-many-arguments
-    print(f"angle: {angle:5} magnitude: {magnitude:5} "
-           "{comp_high>0:d} {comp_low>0:d} {cof>0:d} {ocf>0:d}")
+    now_s: str = datetime.now().isoformat(timespec='microseconds')
+    print(f"time: {now_s} angle: {angle:5} magnitude: {magnitude:5} "
+          f"{comp_high>0:d} {comp_low>0:d} {cof>0:d} {ocf>0:d}")
 
 class ResponseLengthException(Exception):
     """The response is not of length two"""
