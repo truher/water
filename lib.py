@@ -63,7 +63,8 @@ def log(angle: int, magnitude: int, comp_high: int, comp_low: int,
     """Log an observation."""
     now_s: str = datetime.now().isoformat(timespec='microseconds')
     print(f"time: {now_s} angle: {angle:5} magnitude: {magnitude:5} "
-          f"{comp_high>0:d} {comp_low>0:d} {cof>0:d} {ocf>0:d}")
+          f"comp_high: {comp_high>0:d} comp_low: {comp_low>0:d} "
+          f"cof: {cof>0:d} ocf: {ocf>0:d}")
 
 class ResponseLengthException(Exception):
     """The response is not of length two"""
