@@ -1,6 +1,7 @@
 """Decode and log angular data from AMS AS5048A."""
 import spidev # type: ignore
 import lib
+import time
 
 def main() -> None:
     """Do everything."""
@@ -14,7 +15,10 @@ def main() -> None:
 
     while True:
         try:
-            lib.log_angle(sensor.transfer(lib.ANGLE_READ_REQUEST) & 0b0011111111111111)
+            time.sleep(0.01)
+            angle = sensor.transfer(lib.ANGLE_READ_REQUEST) & 0b0011111111111111
+            if angle > 0:
+                lib.log_angle(angle)
         except lib.ResponseLengthException as err:
             print(err)
         except lib.ResponseParityException as err:
