@@ -46,8 +46,9 @@ def main() -> None:
             comp_low: int  = diagnostic & 0b0000010000000000
             cof: int       = diagnostic & 0b0000001000000000
             ocf: int       = diagnostic & 0b0000000100000000
+            agc: int       = diagnostic & 0b0000000011111111
 
-            lib.log(angle, magnitude, comp_high, comp_low, cof, ocf)
+            lib.log(angle, magnitude, comp_high, comp_low, cof, ocf, agc)
         except lib.ResponseLengthException as err:
             print(err)
         except lib.ResponseParityException as err:

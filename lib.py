@@ -59,12 +59,12 @@ def log_angle(angle: int) -> None:
 
 #pylint: disable=unused-argument, too-many-arguments
 def log(angle: int, magnitude: int, comp_high: int, comp_low: int,
-        cof: int, ocf: int) -> None:
+        cof: int, ocf: int, agc: int) -> None:
     """Log an observation."""
     now_s: str = datetime.now().isoformat(timespec='microseconds')
     print(f"time: {now_s} angle: {angle:5} magnitude: {magnitude:5} "
           f"comp_high: {comp_high>0:d} comp_low: {comp_low>0:d} "
-          f"cof: {cof>0:d} ocf: {ocf>0:d}")
+          f"cof: {cof>0:d} ocf: {ocf>0:d} agc: {agc>0:d}")
 
 class ResponseLengthException(Exception):
     """The response is not of length two"""
