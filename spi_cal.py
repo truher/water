@@ -50,6 +50,11 @@ def main() -> None:
             lib.log(angle, magnitude, comp_high, comp_low, cof, ocf)
         except lib.ResponseLengthException as err:
             print(err)
+        except lib.ResponseParityException as err:
+            print(err)
+        except lib.ResponseErrorRegisterException as err:
+            print(err)
+
 
 
 if __name__ == "__main__":
