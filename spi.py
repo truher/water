@@ -10,12 +10,13 @@ def main() -> None:
     #spi.max_speed_hz = 1000000
     spi.max_speed_hz = 4000
     spi.mode = 1
+    sample_delay_sec = 0.0075
 
     sensor = lib.Sensor(spi)
 
     while True:
         try:
-            time.sleep(0.01)
+            time.sleep(sample_delay_sec)
             angle = sensor.transfer(lib.ANGLE_READ_REQUEST) & 0b0011111111111111
             if angle > 0:
                 lib.log_angle(angle)
