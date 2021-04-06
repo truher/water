@@ -29,7 +29,7 @@ def main() -> None:
             if angle > 0:
 
                 dt = datetime.utcfromtimestamp(now_ns // 1e9)
-                dts = dt.isoformat(timespec='microseconds')
+                dts = dt.isoformat() + '.' + str(int(now_ns % 1e9)).zfill(9)
 
                 print(f"{dts} {angle:5}")
 
