@@ -11,8 +11,8 @@ def main() -> None:
     #spi.max_speed_hz = 1000000
     spi.max_speed_hz = 4000
     spi.mode = 1
-    sample_period_ns = 5e8 # 0.5s
-    sample_delay_ns = 0
+    sample_period_ns = 2e7 # 0.02s
+    sample_delay_ns = 2e5 # 200us
 
     sensor = lib.Sensor(spi)
 
