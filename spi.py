@@ -12,26 +12,37 @@ def main() -> None:
     spi.max_speed_hz = 4000
     spi.mode = 1
     sample_period_ns = 2e7 # 0.02s
-    sample_delay_ns = 2e5 # 200us
+    zero_crossing_threshold = 1000
 
     sensor = lib.Sensor(spi)
+
+    cumulative_turns = 0
+    previous_angle = 0
 
     while True:
         try:
             now_ns = time.time_ns()
-            waiting_ns = int(sample_period_ns
-                             - (now_ns % sample_period_ns)
-                             - sample_delay_ns)
+            waiting_ns = int(sample_period_ns - (now_ns % sample_period_ns))
             time.sleep(waiting_ns / 1e9)
             now_ns = time.time_ns()
 
             angle = sensor.transfer(lib.ANGLE_READ_REQUEST) & 0b0011111111111111
-            if angle > 0:
+            if angle > 0: # zero is an error
 
                 dt = datetime.utcfromtimestamp(now_ns // 1e9)
                 dts = dt.isoformat() + '.' + str(int(now_ns % 1e9)).zfill(9)
 
-                print(f"{dts} {angle:5}")
+                if previous_angle == 0:
+                    previous_angle = angle
+                d_angle = angle - previous_angle
+
+                if d_angle > zero_crossing_threshold:
+                    cumulative_turns += 1
+
+                if d_angle < zero_crossing_threshold:
+                    cumulative_turns -= 1
+
+                print(f"{dts} {angle:5} {cumulative_turns:5}")
 
         except lib.ResponseLengthException as err:
             print(err)
