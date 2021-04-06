@@ -2,6 +2,7 @@
 import spidev # type: ignore
 import lib
 import time
+from datetime import datetime
 
 def main() -> None:
     """Do everything."""
@@ -10,16 +11,29 @@ def main() -> None:
     #spi.max_speed_hz = 1000000
     spi.max_speed_hz = 4000
     spi.mode = 1
-    sample_delay_sec = 0.0075
+    sample_period_ns = 5e8 # 0.5s
+    sample_delay_ns = 0
 
     sensor = lib.Sensor(spi)
 
     while True:
         try:
-            time.sleep(sample_delay_sec)
+            now_ns = time.time_ns()
+            waiting_ns = int(sample_period_ns
+                             - (now_ns % sample_period_ns)
+                             - sample_delay_ns)
+            time.sleep(waiting_ns / 1e9)
+            now_ns = time.time_ns()
+
             angle = sensor.transfer(lib.ANGLE_READ_REQUEST) & 0b0011111111111111
             if angle > 0:
                 lib.log_angle(angle)
+
+                dt = datetime.utcfromtimestamp(1462352019029395103 // 1000000000)
+                dts = dt.isoformat(timespec='microseconds')
+
+                print(f"{dts} {angle:5}")
+
         except lib.ResponseLengthException as err:
             print(err)
         except lib.ResponseParityException as err:
