@@ -2,6 +2,7 @@
 import spidev # type: ignore
 import lib
 import time
+import pytz
 from datetime import datetime
 
 def main() -> None:
@@ -16,6 +17,8 @@ def main() -> None:
 
     sensor = lib.Sensor(spi)
 
+    PST = pytz.timezone('US/Pacific')
+
     while True:
         try:
             now_ns = time.time_ns()
@@ -28,7 +31,7 @@ def main() -> None:
             angle = sensor.transfer(lib.ANGLE_READ_REQUEST) & 0b0011111111111111
             if angle > 0:
 
-                dt = datetime.utcfromtimestamp(now_ns // 1e9)
+                dt = datetime.utcfromtimestamp(now_ns // 1e9).astimezone(PST)
                 dts = dt.isoformat() + '.' + str(int(now_ns % 1e9)).zfill(9)
 
                 print(f"{dts} {angle:5}")
