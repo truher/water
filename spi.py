@@ -39,7 +39,7 @@ def main() -> None:
                 if d_angle > zero_crossing_threshold:
                     cumulative_turns += 1
 
-                if d_angle < zero_crossing_threshold:
+                if d_angle < (-1 * zero_crossing_threshold):
                     cumulative_turns -= 1
 
                 print(f"{dts} {angle:5} {cumulative_turns:5}")
