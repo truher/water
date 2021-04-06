@@ -28,7 +28,7 @@ def main() -> None:
             angle = sensor.transfer(lib.ANGLE_READ_REQUEST) & 0b0011111111111111
             if angle > 0:
 
-                dt = datetime.utcfromtimestamp(1462352019029395103 // 1000000000)
+                dt = datetime.utcfromtimestamp(now_ns // 1e9)
                 dts = dt.isoformat(timespec='microseconds')
 
                 print(f"{dts} {angle:5}")
