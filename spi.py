@@ -44,6 +44,8 @@ def main() -> None:
 
                 print(f"{dts} {angle:5} {cumulative_turns:5}")
 
+                previous_angle = angle
+
         except lib.ResponseLengthException as err:
             print(err)
         except lib.ResponseParityException as err:
