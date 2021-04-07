@@ -15,12 +15,13 @@ def main() -> None:
     # nyquist would be 10hz sample rate
     # let's leave it at 50hz for now
     # maybe reduce it later
-    sample_period_ns = 2e7 # 0.02s
+    #sample_period_ns = 2e7 # 0.02s
+    sample_period_ns = 5e6 # 0.005s
     # 5hz full speed
     # 50hz sample rate
     # = 10 samples per revolution
     # so make threshold double that
-    zero_crossing_threshold = 3279
+    zero_crossing_threshold = 7168
 
     sensor = lib.Sensor(spi)
 
