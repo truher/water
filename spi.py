@@ -11,8 +11,16 @@ def main() -> None:
     #spi.max_speed_hz = 1000000
     spi.max_speed_hz = 4000
     spi.mode = 1
+    # 5hz full speed
+    # nyquist would be 10hz sample rate
+    # let's leave it at 50hz for now
+    # maybe reduce it later
     sample_period_ns = 2e7 # 0.02s
-    zero_crossing_threshold = 1000
+    # 5hz full speed
+    # 50hz sample rate
+    # = 10 samples per revolution
+    # so make threshold double that
+    zero_crossing_threshold = 3279
 
     sensor = lib.Sensor(spi)
 
