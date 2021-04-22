@@ -6,16 +6,17 @@ from datetime import datetime
 import time
 import lib
 
-def parse() -> Any:
+def parse() -> argparse.Namespace:
     """define and parse command line args"""
-    parser = argparse.ArgumentParser()
+    parser: argparse.ArgumentParser = argparse.ArgumentParser()
     parser.add_argument("--fake", action="store_true",
                         help="use fake spidev, for testing/calibration")
     parser.add_argument("--verbose", action="store_true",
                         help="read everything, not just angle")
-    return parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
+    return args
 
-def make_spi(args: Any) -> Any:
+def make_spi(args: argparse.Namespace) -> Any:
     """poor man's DI"""
     if args.fake:
         print("using fake spidev")
@@ -47,8 +48,8 @@ def verbose(sensor: Any) -> None:
 
 def main() -> None:
     """Do everything."""
-    args = parse()
-    spi = make_spi(args)
+    args: argparse.Namespace = parse()
+    spi: Any = make_spi(args)
 
     spi.open(0, 0)
     #spi.max_speed_hz = 1000000
@@ -59,17 +60,17 @@ def main() -> None:
     # let's leave it at 50hz for now
     # maybe reduce it later
     #sample_period_ns = 2e7 # 0.02s
-    sample_period_ns = 5e6 # 0.005s
+    sample_period_ns: int = 5000000 # 0.005s
     # 5hz full speed
     # 50hz sample rate
     # = 10 samples per revolution
     # so make threshold double that
-    zero_crossing_threshold = 7168
+    zero_crossing_threshold: int = 7168
 
-    sensor = lib.Sensor(spi)
+    sensor: lib.Sensor = lib.Sensor(spi)
 
-    cumulative_turns = 0
-    previous_angle = 0
+    cumulative_turns: int = 0
+    previous_angle: int = 0
 
     while True:
         try:
@@ -77,8 +78,8 @@ def main() -> None:
                 verbose(sensor)
                 continue
 
-            now_ns = time.time_ns()
-            waiting_ns = int(sample_period_ns - (now_ns % sample_period_ns))
+            now_ns: int = time.time_ns()
+            waiting_ns: int = int(sample_period_ns - (now_ns % sample_period_ns))
             time.sleep(waiting_ns / 1e9)
             now_ns = time.time_ns()
 
@@ -88,12 +89,12 @@ def main() -> None:
                 print("skipping zero result")
                 continue
 
-            dt_now = datetime.utcfromtimestamp(now_ns // 1e9)
-            dts = dt_now.isoformat() + '.' + str(int(now_ns % 1e9)).zfill(9)
+            dt_now: datetime = datetime.utcfromtimestamp(now_ns // 1e9)
+            dts: str = dt_now.isoformat() + '.' + str(int(now_ns % 1e9)).zfill(9)
 
             if previous_angle == 0:
                 previous_angle = angle
-            d_angle = angle - previous_angle
+            d_angle: int = angle - previous_angle
 
             if d_angle > zero_crossing_threshold:
                 cumulative_turns += 1
