@@ -41,6 +41,7 @@ MAGNITUDE_REQUEST: int  = 0b0111111111111110
 ANGLE_READ_REQUEST: int = 0b1111111111111111
 # read response comes in the subsequent message
 
+RESPONSE_MASK: int      = 0b0011111111111111
 ERR_MASK: int           = 0b0100000000000000
 
 def has_even_parity(message: int) -> bool:
