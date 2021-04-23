@@ -86,6 +86,7 @@ def main() -> None:
             angle = sensor.transfer(lib.ANGLE_READ_REQUEST) & lib.RESPONSE_MASK
 
             if angle == 0:
+                # TODO: zero is not *always* an error.  fix this.
                 print("skipping zero result")
                 continue
 
@@ -96,13 +97,14 @@ def main() -> None:
                 previous_angle = angle
             d_angle: int = angle - previous_angle
 
-            if d_angle > zero_crossing_threshold:
+            if d_angle < (-1 * zero_crossing_threshold):
                 cumulative_turns += 1
 
-            if d_angle < (-1 * zero_crossing_threshold):
+            if d_angle > zero_crossing_threshold:
                 cumulative_turns -= 1
 
-            print(f"{dts} {angle:5} {cumulative_turns:5}")
+            cumulative_angle = cumulative_turns * 16384 + angle
+            print(f"{dts} {angle:5} {cumulative_angle:6} {cumulative_turns:5}")
 
             previous_angle = angle
 

@@ -21,7 +21,7 @@ class SimulatorSpiDev:
         if len(req) != 2:
             return [0, 0]
         if req[0] == 0xff and req[1] == 0xff:
-            self.angle += 100  # TODO: make this about time instead, make it adjustable
+            self.angle += 20  # TODO: make this about time instead, make it adjustable
             if self.angle > 16383:
                 self.angle -= 16384
 
