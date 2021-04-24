@@ -1,10 +1,20 @@
 """Decode and log angular data from AMS AS5048A."""
 # pylint: disable=import-error, import-outside-toplevel
-from typing import Any
 import argparse
-from datetime import datetime
+import json
+import threading
 import time
+from datetime import datetime
+from flask import Flask, Response
+from typing import Any
+from waitress import serve #type:ignore
+import collections
 import lib
+
+
+app = Flask(__name__)
+
+raw_data = collections.deque(maxlen=5000)
 
 def parse() -> argparse.Namespace:
     """define and parse command line args"""
@@ -45,9 +55,9 @@ def verbose(sensor: Any) -> None:
 
     lib.log(angle, magnitude, comp_high, comp_low, cof, ocf, agc)
 
+def data_reader() -> None:
+    """read input"""
 
-def main() -> None:
-    """Do everything."""
     args: argparse.Namespace = parse()
     spi: Any = make_spi(args)
 
@@ -105,6 +115,10 @@ def main() -> None:
 
             cumulative_angle = cumulative_turns * 16384 + angle
             print(f"{dts} {angle:5} {cumulative_angle:6} {cumulative_turns:5}")
+            raw_data.append({'dts':dts,
+                             'angle':angle,
+                             'cumulative_angle':cumulative_angle,
+                             'cumulative_turns':cumulative_turns})
 
             previous_angle = angle
 
@@ -115,6 +129,30 @@ def main() -> None:
         except lib.ResponseErrorRegisterException as err:
             print(f"Response Error Register {err}")
 
+
+@app.route('/')
+def index() -> Any:
+    """index"""
+    print('index')
+    return app.send_static_file('index.html')
+
+@app.route('/timeseries')
+def timeseries() -> Any:
+    """timeseries"""
+    print('timeseries')
+    return app.send_static_file('timeseries.html')
+
+@app.route('/data')
+def data() -> Any:
+    """data"""
+    print('data')
+    json_payload = json.dumps(list(raw_data))
+    return Response(json_payload, mimetype='application/json')
+
+def main() -> None:
+    """main"""
+    threading.Thread(target=data_reader).start()
+    serve(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":
     main()
