@@ -62,7 +62,8 @@ def verbose(sensor: Any) -> None:
 
 
 # this is not the way it will work, but it's a place to start
-CONSTANT_UL_PER_ANGLE = 0.0002
+# note delivered volume is positive for negative angle increments
+CONSTANT_UL_PER_ANGLE = -0.0002
 
 def volume_ul(delta_cumulative_angle: int) -> int:
     """return microliters"""
