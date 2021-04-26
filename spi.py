@@ -16,6 +16,8 @@ app = Flask(__name__)
 
 raw_data = collections.deque(maxlen=5000)
 
+sampled_data = collections.deque(maxlen=5000)
+
 def parse() -> argparse.Namespace:
     """define and parse command line args"""
     parser: argparse.ArgumentParser = argparse.ArgumentParser()
@@ -81,6 +83,10 @@ def data_reader() -> None:
 
     cumulative_turns: int = 0
     previous_angle: int = 0
+    #previous_cumulative_angle: int = 0
+    #previous_now_ns: int = 0
+    current_second: int = time.time_ns() // 1e9
+    previous_second: int = current_second
 
     while True:
         try:
@@ -105,6 +111,7 @@ def data_reader() -> None:
 
             if previous_angle == 0:
                 previous_angle = angle
+
             d_angle: int = angle - previous_angle
 
             if d_angle < (-1 * zero_crossing_threshold):
@@ -114,11 +121,19 @@ def data_reader() -> None:
                 cumulative_turns -= 1
 
             cumulative_angle = cumulative_turns * 16384 + angle
-            print(f"{dts} {angle:5} {cumulative_angle:6} {cumulative_turns:5}")
+
+            #print(f"{dts} {angle:5} {cumulative_angle:6} {cumulative_turns:5}")
             raw_data.append({'dts':dts,
                              'angle':angle,
                              'cumulative_angle':cumulative_angle,
                              'cumulative_turns':cumulative_turns})
+
+            current_second = int(now_ns // 1e9)
+            if current_second > previous_second:
+                # just crossed the boundary
+                print(f"new second, cumulative angle: {cumulative_angle}")
+                sampled_data.append({'dts':dts, 'cumulative_angle':cumulative_angle})
+                previous_second = current_second
 
             previous_angle = angle
 
@@ -147,6 +162,7 @@ def data() -> Any:
     """data"""
     print('data')
     json_payload = json.dumps(list(raw_data))
+    #print(json_payload)
     return Response(json_payload, mimetype='application/json')
 
 def main() -> None:

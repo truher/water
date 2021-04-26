@@ -4,6 +4,10 @@ from random import random
 from typing import List
 import lib
 
+# negative angle is positive flow
+# i think 4000 is about full speed? TODO: find out
+INCREMENT = -4000
+
 #pylint: disable=too-few-public-methods
 class SimulatorSpiDev:
     """simulated sensor"""
@@ -21,9 +25,11 @@ class SimulatorSpiDev:
         if len(req) != 2:
             return [0, 0]
         if req[0] == 0xff and req[1] == 0xff:
-            self.angle += 20  # TODO: make this about time instead, make it adjustable
+            self.angle += INCREMENT  # TODO: make this about time instead, make it adjustable
             if self.angle > 16383:
                 self.angle -= 16384
+            if self.angle < 0:
+                self.angle += 16384
 
             noise: int = self._noise()
             observation: int = self.angle + noise
