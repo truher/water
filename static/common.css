@@ -53,3 +53,11 @@
 .top-label {
   margin-bottom: 0;
 }
+
+table,td {
+  border-collapse: collapse;
+}
+table, th, td {
+  border: thin solid grey;
+  padding: 5px;
+}
