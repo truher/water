@@ -2,6 +2,7 @@
 # pylint: disable=import-error, import-outside-toplevel
 import argparse
 import json
+import pandas as pd
 import threading
 import time
 from datetime import datetime
@@ -14,9 +15,11 @@ import lib
 
 app = Flask(__name__)
 
-raw_data = collections.deque(maxlen=5000)
+#raw_data = collections.deque(maxlen=5000)
 
-sampled_data = collections.deque(maxlen=5000)
+#sampled_data = collections.deque(maxlen=5000)
+
+FILENAME = "datafile"
 
 def parse() -> argparse.Namespace:
     """define and parse command line args"""
@@ -57,6 +60,14 @@ def verbose(sensor: Any) -> None:
 
     lib.log(angle, magnitude, comp_high, comp_low, cof, ocf, agc)
 
+
+# this is not the way it will work, but it's a place to start
+CONSTANT_UL_PER_ANGLE = 0.0002
+
+def volume_ul(delta_cumulative_angle: int) -> int:
+    """return microliters"""
+    return int(delta_cumulative_angle * CONSTANT_UL_PER_ANGLE)
+
 def data_reader() -> None:
     """read input"""
 
@@ -83,66 +94,81 @@ def data_reader() -> None:
 
     cumulative_turns: int = 0
     previous_angle: int = 0
-    #previous_cumulative_angle: int = 0
-    #previous_now_ns: int = 0
+    previous_cumulative_angle: int = 0
     current_second: int = time.time_ns() // 1e9
     previous_second: int = current_second
+    cumulative_volume_ul: int = 0
 
-    while True:
-        try:
-            if args.verbose:
-                verbose(sensor)
-                continue
+    with open(FILENAME, 'ab') as sink:
 
-            now_ns: int = time.time_ns()
-            waiting_ns: int = int(sample_period_ns - (now_ns % sample_period_ns))
-            time.sleep(waiting_ns / 1e9)
-            now_ns = time.time_ns()
+        while True:
+            try:
+                if args.verbose:
+                    verbose(sensor)
+                    continue
 
-            angle = sensor.transfer(lib.ANGLE_READ_REQUEST) & lib.RESPONSE_MASK
+                now_ns: int = time.time_ns()
+                waiting_ns: int = int(sample_period_ns - (now_ns % sample_period_ns))
+                time.sleep(waiting_ns / 1e9)
+                now_ns = time.time_ns()
 
-            if angle == 0:
-                # TODO: zero is not *always* an error.  fix this.
-                print("skipping zero result")
-                continue
+                angle = sensor.transfer(lib.ANGLE_READ_REQUEST) & lib.RESPONSE_MASK
 
-            dt_now: datetime = datetime.utcfromtimestamp(now_ns // 1e9)
-            dts: str = dt_now.isoformat() + '.' + str(int(now_ns % 1e9)).zfill(9)
+                if angle == 0:
+                    # TODO: zero is not *always* an error.  fix this.
+                    print("skipping zero result")
+                    continue
 
-            if previous_angle == 0:
+                dt_now: datetime = datetime.utcfromtimestamp(now_ns // 1e9)
+                dts: str = dt_now.isoformat() + '.' + str(int(now_ns % 1e9)).zfill(9)
+
+                if previous_angle == 0:
+                    previous_angle = angle
+
+                d_angle: int = angle - previous_angle
+
+                if d_angle < (-1 * zero_crossing_threshold):
+                    cumulative_turns += 1
+
+                if d_angle > zero_crossing_threshold:
+                    cumulative_turns -= 1
+
+                cumulative_angle = cumulative_turns * 16384 + angle
+
+                #print(f"{dts} {angle:5} {cumulative_angle:6} {cumulative_turns:5}")
+                #raw_data.append({'dts':dts,
+                #             'angle':angle,
+                #             'cumulative_angle':cumulative_angle,
+                #             'cumulative_turns':cumulative_turns})
+
+                current_second = int(now_ns // 1e9)
+                if current_second > previous_second:
+                    # just crossed the boundary
+                    delta_cumulative_angle:int = cumulative_angle - previous_cumulative_angle
+                    delta_volume_ul:int = volume_ul(delta_cumulative_angle)
+                    cumulative_volume_ul += delta_volume_ul
+
+                    print(f"new second, cumulative angle: {cumulative_angle} "
+                          f"delta cumulative angle: {delta_cumulative_angle} "
+                          f"cumulative volume ul: {cumulative_volume_ul}")
+                    #sampled_data.append({'dts':dts, 'angle':cumulative_angle})
+                    #output_line = f"{dts}\t{cumulative_angle}\t{cumulative_volume_ul}"
+                    output_line = f"{dts}\t{delta_cumulative_angle}\t{delta_volume_ul}"
+                    sink.write(output_line.encode('ascii'))
+                    sink.write(b'\n')
+                    sink.flush()
+
+                    previous_second = current_second
+                    previous_cumulative_angle = cumulative_angle
+
                 previous_angle = angle
 
-            d_angle: int = angle - previous_angle
-
-            if d_angle < (-1 * zero_crossing_threshold):
-                cumulative_turns += 1
-
-            if d_angle > zero_crossing_threshold:
-                cumulative_turns -= 1
-
-            cumulative_angle = cumulative_turns * 16384 + angle
-
-            #print(f"{dts} {angle:5} {cumulative_angle:6} {cumulative_turns:5}")
-            raw_data.append({'dts':dts,
-                             'angle':angle,
-                             'cumulative_angle':cumulative_angle,
-                             'cumulative_turns':cumulative_turns})
-
-            current_second = int(now_ns // 1e9)
-            if current_second > previous_second:
-                # just crossed the boundary
-                print(f"new second, cumulative angle: {cumulative_angle}")
-                sampled_data.append({'dts':dts, 'cumulative_angle':cumulative_angle})
-                previous_second = current_second
-
-            previous_angle = angle
-
-        except lib.ResponseLengthException as err:
-            print(f"Response Length Exception {err}")
-        except lib.ResponseParityException as err:
-            print(f"Response Parity Exception {err}")
-        except lib.ResponseErrorRegisterException as err:
-            print(f"Response Error Register {err}")
+            except lib.ResponseLengthException as err:
+                print(f"Response Length Exception {err}")
+            except lib.ResponseParityException as err:
+                print(f"Response Parity Exception {err}")
+            except lib.ResponseErrorRegisterException as err:
+                print(f"Response Error Register {err}")
 
 
 @app.route('/')
@@ -161,8 +187,16 @@ def timeseries() -> Any:
 def data() -> Any:
     """data"""
     print('data')
-    json_payload = json.dumps(list(raw_data))
+
+    #json_payload = json.dumps(list(raw_data))
+    #json_payload = json.dumps(list(sampled_data))
     #print(json_payload)
+
+    df = pd.read_csv(FILENAME, delim_whitespace=True, index_col=0,
+                     parse_dates=True, header=None,
+                     names=['time', 'angle', 'volume'])
+    by_min = df.resample('T').sum()
+    json_payload = json.dumps(by_min.to_records().tolist())
     return Response(json_payload, mimetype='application/json')
 
 def main() -> None:

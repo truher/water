@@ -1,4 +1,5 @@
 """Simulated spi interface"""
+from datetime import datetime
 from math import log
 from random import random
 from typing import List
@@ -6,7 +7,9 @@ import lib
 
 # negative angle is positive flow
 # i think 4000 is about full speed? TODO: find out
-INCREMENT = -4000
+# TODO: make this about time instead, make it adjustable
+HIGH_INCREMENT = -4000
+LOW_INCREMENT = -400
 
 #pylint: disable=too-few-public-methods
 class SimulatorSpiDev:
@@ -25,7 +28,10 @@ class SimulatorSpiDev:
         if len(req) != 2:
             return [0, 0]
         if req[0] == 0xff and req[1] == 0xff:
-            self.angle += INCREMENT  # TODO: make this about time instead, make it adjustable
+            if datetime.now().minute % 2 == 0:
+                self.angle += HIGH_INCREMENT
+            else:
+                self.angle += LOW_INCREMENT
             if self.angle > 16383:
                 self.angle -= 16384
             if self.angle < 0:
