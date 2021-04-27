@@ -2,20 +2,32 @@
 # pylint: disable=import-error, import-outside-toplevel
 import argparse
 import json
-import pandas as pd
 import threading
 import time
 from datetime import datetime
-from flask import Flask, Response
 from typing import Any
-from waitress import serve #type:ignore
-import collections
+import pandas as pd #type:ignore
+from flask import Flask, Response
+from waitress import serve
 import lib
 
 app = Flask(__name__)
 
 DATA_SEC = "data_sec" # temporary
 DATA_MIN = "data_min" # permanent
+
+# 5hz full speed
+# nyquist would be 10hz sample rate
+# let's leave it at 50hz for now
+# maybe reduce it later
+#sample_period_ns = 2e7 # 0.02s
+SAMPLE_PERIOD_NS: int = 5000000 # 0.005s
+
+# 5hz full speed
+# 50hz sample rate
+# = 10 samples per revolution
+# so make threshold double that
+ZERO_CROSSING_THRESHOLD: int = 7168
 
 def parse() -> argparse.Namespace:
     """define and parse command line args"""
@@ -36,6 +48,14 @@ def make_spi(args: argparse.Namespace) -> Any:
     print("using real spidev")
     import spidev # type: ignore
     return spidev.SpiDev()
+
+def setup_spi(spi: Any) -> None:
+    """set speed etc"""
+    spi.open(0, 0)
+    #spi.max_speed_hz = 1000000
+    spi.max_speed_hz = 4000
+    spi.mode = 1
+
 
 def verbose(sensor: Any) -> None:
     """log extra"""
@@ -76,8 +96,8 @@ class DataWriter:
         self.cumulative_volume_ul = 0
         self.current_second: int = 0
 
-    def write(self, now_ns: int, cumulative_angle: int,
-              cumulative_volume_ul:int) -> None:
+    def write(self, now_ns: int, cumulative_angle: int, cumulative_volume_ul:int) -> None:
+        """handle a datum"""
         now_s = int(now_ns // 1000000000)
         if now_s <= self.current_second:
             return
@@ -93,17 +113,41 @@ class DataWriter:
             return
 
         dt_now: datetime = datetime.utcfromtimestamp(now_s)
-        dts: str = dt_now.isoformat() + '.' + str(int(now_ns % 1e9)).zfill(9)
-        delta_cumulative_angle_2 = cumulative_angle - self.cumulative_angle
-        delta_volume_ul_2 = cumulative_volume_ul - self.cumulative_volume_ul
+        dts: str = dt_now.isoformat() + '.' + str(int(now_ns % 1000000000)).zfill(9)
+        delta_cumulative_angle = cumulative_angle - self.cumulative_angle
+        delta_volume_ul = cumulative_volume_ul - self.cumulative_volume_ul
 
-        output_line = (f"{dt_now.second}\t{dts}"
-                       f"\t{delta_cumulative_angle_2}\t{delta_volume_ul_2}")
+        output_line = (f"{dts}\t{delta_cumulative_angle}\t{delta_volume_ul}")
         self.sink.write(output_line.encode('ascii'))
         self.sink.write(b'\n')
         self.sink.flush()
-        self.cumulative_angle = cumulative_angle 
-        self.cumulative_volume_ul = cumulative_volume_ul 
+        self.cumulative_angle = cumulative_angle
+        self.cumulative_volume_ul = cumulative_volume_ul
+
+class Meter:
+    """keep the state of the meter"""
+    def __init__(self) -> None:
+        self.previous_cumulative_angle: int = 0
+        self.cumulative_volume_ul: int = 0
+        self.previous_second: int = 0
+
+    def update_volume(self, now_ns: int, cumulative_angle: int) -> None:
+        """handle an observation, note this must be called frequently enough"""
+        current_second: int = int(now_ns // 1000000000)
+        if current_second > self.previous_second:
+            # just crossed the boundary
+            delta_cumulative_angle:int = cumulative_angle - self.previous_cumulative_angle
+            delta_volume_ul:int = volume_ul(delta_cumulative_angle)
+            self.cumulative_volume_ul += delta_volume_ul
+            self.previous_second = current_second
+            self.previous_cumulative_angle = cumulative_angle
+
+    def read_angle(self) -> int:
+        """read the cumulative state"""
+        pass
+    def read_volume_ul(self) -> int:
+        """read the cumulative state"""
+        return self.cumulative_volume_ul
 
 
 def data_reader() -> None:
@@ -111,37 +155,20 @@ def data_reader() -> None:
 
     args: argparse.Namespace = parse()
     spi: Any = make_spi(args)
-
-    spi.open(0, 0)
-    #spi.max_speed_hz = 1000000
-    spi.max_speed_hz = 4000
-    spi.mode = 1
-    # 5hz full speed
-    # nyquist would be 10hz sample rate
-    # let's leave it at 50hz for now
-    # maybe reduce it later
-    #sample_period_ns = 2e7 # 0.02s
-    sample_period_ns: int = 5000000 # 0.005s
-    # 5hz full speed
-    # 50hz sample rate
-    # = 10 samples per revolution
-    # so make threshold double that
-    zero_crossing_threshold: int = 7168
+    setup_spi(spi)
 
     sensor: lib.Sensor = lib.Sensor(spi)
 
     cumulative_turns: int = 0
     previous_angle: int = 0
-    previous_cumulative_angle: int = 0
-    current_second: int = time.time_ns() // 1e9
-    previous_second: int = current_second
-    cumulative_volume_ul: int = 0
 
     # write every second, truncate every 10 seconds
     sec_writer: DataWriter = DataWriter(DATA_SEC, 1, 10)
 
     # write every 60 seconds, never truncate
     min_writer: DataWriter = DataWriter(DATA_MIN, 60, 0)
+
+    meter: Meter = Meter()
 
     while True:
         try:
@@ -150,10 +177,11 @@ def data_reader() -> None:
                 continue
 
             now_ns: int = time.time_ns()
-            waiting_ns: int = int(sample_period_ns - (now_ns % sample_period_ns))
+            waiting_ns: int = int(SAMPLE_PERIOD_NS - (now_ns % SAMPLE_PERIOD_NS))
             time.sleep(waiting_ns / 1e9)
             now_ns = time.time_ns()
 
+            # TODO: hide this spi-specific stuff
             angle = sensor.transfer(lib.ANGLE_READ_REQUEST) & lib.RESPONSE_MASK
 
             if angle == 0:
@@ -161,32 +189,21 @@ def data_reader() -> None:
                 print("skipping zero result")
                 continue
 
-            dt_now: datetime = datetime.utcfromtimestamp(now_ns // 1e9)
-            dts: str = dt_now.isoformat() + '.' + str(int(now_ns % 1e9)).zfill(9)
-
             # TODO: pull this stateful angle calculation into a class
             if previous_angle == 0:
                 previous_angle = angle
             d_angle: int = angle - previous_angle
-            if d_angle < (-1 * zero_crossing_threshold):
+            if d_angle < (-1 * ZERO_CROSSING_THRESHOLD):
                 cumulative_turns += 1
-            if d_angle > zero_crossing_threshold:
+            if d_angle > ZERO_CROSSING_THRESHOLD:
                 cumulative_turns -= 1
             cumulative_angle = cumulative_turns * 16384 + angle
             previous_angle = angle
 
-            # TODO: pull this stateful volume calculation into a class
-            current_second = int(now_ns // 1e9)
-            if current_second > previous_second:
-                # just crossed the boundary
-                delta_cumulative_angle:int = cumulative_angle - previous_cumulative_angle
-                delta_volume_ul:int = volume_ul(delta_cumulative_angle)
-                cumulative_volume_ul += delta_volume_ul
-                previous_second = current_second
-                previous_cumulative_angle = cumulative_angle
+            meter.update_volume(now_ns, cumulative_angle)
 
-            sec_writer.write(now_ns, cumulative_angle, cumulative_volume_ul)
-            min_writer.write(now_ns, cumulative_angle, cumulative_volume_ul)
+            sec_writer.write(now_ns, cumulative_angle, meter.read_volume_ul())
+            min_writer.write(now_ns, cumulative_angle, meter.read_volume_ul())
 
         except lib.ResponseLengthException as err:
             print(f"Response Length Exception {err}")
@@ -212,11 +229,12 @@ def timeseries() -> Any:
 def data() -> Any:
     """data"""
     print('data')
-    df = pd.read_csv(DATA_SEC, delim_whitespace=True, index_col=0,
+    df_sec = pd.read_csv(DATA_SEC, delim_whitespace=True, index_col=0,
                      parse_dates=True, header=None,
                      names=['time', 'angle', 'volume'])
-    by_min = df.resample('T').sum()
-    json_payload = json.dumps(by_min.to_records().tolist())
+    # TODO: use the by-minute file instead
+    df_min = df_sec.resample('T').sum()
+    json_payload = json.dumps(df_min.to_records().tolist())
     return Response(json_payload, mimetype='application/json')
 
 def main() -> None:
