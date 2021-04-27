@@ -1,6 +1,8 @@
 """Write data files"""
 # pylint: disable=too-few-public-methods
+from collections import deque
 from datetime import datetime
+from typing import Deque
 
 class DataWriter:
     """write a line every so often"""
@@ -13,6 +15,14 @@ class DataWriter:
         self.cumulative_volume_ul = 0
         self.current_second: int = 0
 
+    def _trim(self, now_s: int) -> None:
+        if self.trunc_mod_sec != 0 and now_s % self.trunc_mod_sec == 0:
+            self.sink.close()
+            whole_file: Deque[bytes] = deque(open(self.filename, 'rb'), maxlen=self.trunc_mod_sec)
+            self.sink = open(self.filename, 'wb')
+            self.sink.writelines(whole_file)
+            self.sink.flush()
+
     def write(self, now_ns: int, cumulative_angle: int, cumulative_volume_ul:int) -> None:
         """write the delta corresponding to the mod"""
         now_s = int(now_ns // 1000000000)
@@ -20,11 +30,7 @@ class DataWriter:
             return
         self.current_second = now_s
 
-        if self.trunc_mod_sec != 0 and now_s % self.trunc_mod_sec == 0:
-            self.sink.close()
-            with open(self.filename, 'w') as trunc_sink:
-                trunc_sink.truncate()
-            self.sink = open(self.filename, 'ab')
+        self._trim(now_s)
 
         if now_s % self.write_mod_sec != 0:
             return

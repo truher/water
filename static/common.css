@@ -2,52 +2,13 @@
   height: 1.5em;
 }
 
-/* raw and summary charts */
-.chart d3fc-svg {
+.plot-area {
   display: block;
-  height: 250px;
+  height: 200px;
 }
 
-/* multi series color */
-.multi .line {
-  stroke: inherit;
-}
-
-#timeseries path.line {
+.line {
   stroke: blue;
-}
-
-/* logger */
-#small-multiples>div {
-  display: inline-block;
-  width: 25%;
-  height: 250px;
-  margin: 0;
-}
-
-#allraw > div {
-  display: block;
-  height: 150px;
-  width = 100%;
-  margin: 0;
-}
-
-#allraw .line {
-  stroke: blue;
-}
-
-/* timeseries */
-#timeseries {
-  display: block;
-  height: 300px;
-  margin: 0;
-}
-
-#legend {
-  /*display: block;*/
-  height: 36px;
-  width: 414px;
-  margin: 0;
 }
 
 .top-label {
