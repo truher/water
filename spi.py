@@ -12,14 +12,10 @@ from waitress import serve #type:ignore
 import collections
 import lib
 
-
 app = Flask(__name__)
 
-#raw_data = collections.deque(maxlen=5000)
-
-#sampled_data = collections.deque(maxlen=5000)
-
-FILENAME = "datafile"
+DATA_SEC = "data_sec" # temporary
+DATA_MIN = "data_min" # permanent
 
 def parse() -> argparse.Namespace:
     """define and parse command line args"""
@@ -69,6 +65,47 @@ def volume_ul(delta_cumulative_angle: int) -> int:
     """return microliters"""
     return int(delta_cumulative_angle * CONSTANT_UL_PER_ANGLE)
 
+class DataWriter:
+    """write a line every so often"""
+    def __init__(self, filename: str, write_mod_sec: int, trunc_mod_sec: int) -> None:
+        self.filename = filename
+        self.write_mod_sec = write_mod_sec
+        self.trunc_mod_sec = trunc_mod_sec
+        self.sink = open(filename, 'ab')
+        self.cumulative_angle = 0
+        self.cumulative_volume_ul = 0
+        self.current_second: int = 0
+
+    def write(self, now_ns: int, cumulative_angle: int,
+              cumulative_volume_ul:int) -> None:
+        now_s = int(now_ns // 1000000000)
+        if now_s <= self.current_second:
+            return
+        self.current_second = now_s
+
+        if self.trunc_mod_sec != 0 and now_s % self.trunc_mod_sec == 0:
+            self.sink.close()
+            with open(self.filename, 'w') as trunc_sink:
+                trunc_sink.truncate()
+            self.sink = open(self.filename, 'ab')
+
+        if now_s % self.write_mod_sec != 0:
+            return
+
+        dt_now: datetime = datetime.utcfromtimestamp(now_s)
+        dts: str = dt_now.isoformat() + '.' + str(int(now_ns % 1e9)).zfill(9)
+        delta_cumulative_angle_2 = cumulative_angle - self.cumulative_angle
+        delta_volume_ul_2 = cumulative_volume_ul - self.cumulative_volume_ul
+
+        output_line = (f"{dt_now.second}\t{dts}"
+                       f"\t{delta_cumulative_angle_2}\t{delta_volume_ul_2}")
+        self.sink.write(output_line.encode('ascii'))
+        self.sink.write(b'\n')
+        self.sink.flush()
+        self.cumulative_angle = cumulative_angle 
+        self.cumulative_volume_ul = cumulative_volume_ul 
+
+
 def data_reader() -> None:
     """read input"""
 
@@ -100,76 +137,63 @@ def data_reader() -> None:
     previous_second: int = current_second
     cumulative_volume_ul: int = 0
 
-    with open(FILENAME, 'ab') as sink:
+    # write every second, truncate every 10 seconds
+    sec_writer: DataWriter = DataWriter(DATA_SEC, 1, 10)
 
-        while True:
-            try:
-                if args.verbose:
-                    verbose(sensor)
-                    continue
+    # write every 60 seconds, never truncate
+    min_writer: DataWriter = DataWriter(DATA_MIN, 60, 0)
 
-                now_ns: int = time.time_ns()
-                waiting_ns: int = int(sample_period_ns - (now_ns % sample_period_ns))
-                time.sleep(waiting_ns / 1e9)
-                now_ns = time.time_ns()
+    while True:
+        try:
+            if args.verbose:
+                verbose(sensor)
+                continue
 
-                angle = sensor.transfer(lib.ANGLE_READ_REQUEST) & lib.RESPONSE_MASK
+            now_ns: int = time.time_ns()
+            waiting_ns: int = int(sample_period_ns - (now_ns % sample_period_ns))
+            time.sleep(waiting_ns / 1e9)
+            now_ns = time.time_ns()
 
-                if angle == 0:
-                    # TODO: zero is not *always* an error.  fix this.
-                    print("skipping zero result")
-                    continue
+            angle = sensor.transfer(lib.ANGLE_READ_REQUEST) & lib.RESPONSE_MASK
 
-                dt_now: datetime = datetime.utcfromtimestamp(now_ns // 1e9)
-                dts: str = dt_now.isoformat() + '.' + str(int(now_ns % 1e9)).zfill(9)
+            if angle == 0:
+                # TODO: zero is not *always* an error.  fix this.
+                print("skipping zero result")
+                continue
 
-                if previous_angle == 0:
-                    previous_angle = angle
+            dt_now: datetime = datetime.utcfromtimestamp(now_ns // 1e9)
+            dts: str = dt_now.isoformat() + '.' + str(int(now_ns % 1e9)).zfill(9)
 
-                d_angle: int = angle - previous_angle
-
-                if d_angle < (-1 * zero_crossing_threshold):
-                    cumulative_turns += 1
-
-                if d_angle > zero_crossing_threshold:
-                    cumulative_turns -= 1
-
-                cumulative_angle = cumulative_turns * 16384 + angle
-
-                #print(f"{dts} {angle:5} {cumulative_angle:6} {cumulative_turns:5}")
-                #raw_data.append({'dts':dts,
-                #             'angle':angle,
-                #             'cumulative_angle':cumulative_angle,
-                #             'cumulative_turns':cumulative_turns})
-
-                current_second = int(now_ns // 1e9)
-                if current_second > previous_second:
-                    # just crossed the boundary
-                    delta_cumulative_angle:int = cumulative_angle - previous_cumulative_angle
-                    delta_volume_ul:int = volume_ul(delta_cumulative_angle)
-                    cumulative_volume_ul += delta_volume_ul
-
-                    print(f"new second, cumulative angle: {cumulative_angle} "
-                          f"delta cumulative angle: {delta_cumulative_angle} "
-                          f"cumulative volume ul: {cumulative_volume_ul}")
-                    #sampled_data.append({'dts':dts, 'angle':cumulative_angle})
-                    #output_line = f"{dts}\t{cumulative_angle}\t{cumulative_volume_ul}"
-                    output_line = f"{dts}\t{delta_cumulative_angle}\t{delta_volume_ul}"
-                    sink.write(output_line.encode('ascii'))
-                    sink.write(b'\n')
-                    sink.flush()
-
-                    previous_second = current_second
-                    previous_cumulative_angle = cumulative_angle
-
+            # TODO: pull this stateful angle calculation into a class
+            if previous_angle == 0:
                 previous_angle = angle
+            d_angle: int = angle - previous_angle
+            if d_angle < (-1 * zero_crossing_threshold):
+                cumulative_turns += 1
+            if d_angle > zero_crossing_threshold:
+                cumulative_turns -= 1
+            cumulative_angle = cumulative_turns * 16384 + angle
+            previous_angle = angle
 
-            except lib.ResponseLengthException as err:
-                print(f"Response Length Exception {err}")
-            except lib.ResponseParityException as err:
-                print(f"Response Parity Exception {err}")
-            except lib.ResponseErrorRegisterException as err:
-                print(f"Response Error Register {err}")
+            # TODO: pull this stateful volume calculation into a class
+            current_second = int(now_ns // 1e9)
+            if current_second > previous_second:
+                # just crossed the boundary
+                delta_cumulative_angle:int = cumulative_angle - previous_cumulative_angle
+                delta_volume_ul:int = volume_ul(delta_cumulative_angle)
+                cumulative_volume_ul += delta_volume_ul
+                previous_second = current_second
+                previous_cumulative_angle = cumulative_angle
+
+            sec_writer.write(now_ns, cumulative_angle, cumulative_volume_ul)
+            min_writer.write(now_ns, cumulative_angle, cumulative_volume_ul)
+
+        except lib.ResponseLengthException as err:
+            print(f"Response Length Exception {err}")
+        except lib.ResponseParityException as err:
+            print(f"Response Parity Exception {err}")
+        except lib.ResponseErrorRegisterException as err:
+            print(f"Response Error Register {err}")
 
 
 @app.route('/')
@@ -188,12 +212,7 @@ def timeseries() -> Any:
 def data() -> Any:
     """data"""
     print('data')
-
-    #json_payload = json.dumps(list(raw_data))
-    #json_payload = json.dumps(list(sampled_data))
-    #print(json_payload)
-
-    df = pd.read_csv(FILENAME, delim_whitespace=True, index_col=0,
+    df = pd.read_csv(DATA_SEC, delim_whitespace=True, index_col=0,
                      parse_dates=True, header=None,
                      names=['time', 'angle', 'volume'])
     by_min = df.resample('T').sum()
