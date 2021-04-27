@@ -2,6 +2,7 @@
 from typing import List
 import unittest
 import lib
+from sensor import Sensor
 
 #pylint: disable=no-self-use, unused-argument, missing-function-docstring, missing-class-docstring, too-few-public-methods
 class TestLib(unittest.TestCase):
@@ -20,7 +21,7 @@ class TestLib(unittest.TestCase):
             def xfer2(self, req: List[int]) -> List[int]:
                 return [0, 0]
         fsd: FakeSpiDev = FakeSpiDev()
-        sensor = lib.Sensor(fsd)
+        sensor = Sensor(fsd)
         response = sensor.transfer(-2)
         self.assertEqual(-1, response,
             msg='')
@@ -30,8 +31,8 @@ class TestLib(unittest.TestCase):
             def xfer2(self, req: List[int]) -> List[int]:
                 return [0]
         fsd: TooShortSpiDev = TooShortSpiDev()
-        sensor = lib.Sensor(fsd)
-        with self.assertRaises(lib.ResponseLengthException,
+        sensor = Sensor(fsd)
+        with self.assertRaises(Sensor.ResponseLengthException,
                                msg='too-short response should raise exception'):
             sensor.transfer(-2)
 
@@ -40,8 +41,8 @@ class TestLib(unittest.TestCase):
             def xfer2(self, req: List[int]) -> List[int]:
                 return [0, 0, 0]
         fsd: TooLongSpiDev = TooLongSpiDev()
-        sensor = lib.Sensor(fsd)
-        with self.assertRaises(lib.ResponseLengthException,
+        sensor = Sensor(fsd)
+        with self.assertRaises(Sensor.ResponseLengthException,
                                msg='too-long response should raise exception'):
             sensor.transfer(-2)
 
@@ -50,8 +51,8 @@ class TestLib(unittest.TestCase):
             def xfer2(self, req: List[int]) -> List[int]:
                 return [0, 1]
         fsd: BadParitySpiDev = BadParitySpiDev()
-        sensor = lib.Sensor(fsd)
-        with self.assertRaises(lib.ResponseParityException,
+        sensor = Sensor(fsd)
+        with self.assertRaises(Sensor.ResponseParityException,
                           msg='bad response parity should raise exception'):
             sensor.transfer(-2)
 

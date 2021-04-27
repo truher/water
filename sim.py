@@ -1,4 +1,5 @@
 """Simulated spi interface"""
+# pylint: disable=fixme
 from datetime import datetime
 from math import log
 from random import random

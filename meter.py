@@ -1,4 +1,5 @@
 """libary for Meter behavior"""
+# pylint: disable=fixme
 class Meter:
     """Keep the angular state of the meter."""
     def __init__(self) -> None:
