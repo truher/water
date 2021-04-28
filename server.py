@@ -1,6 +1,7 @@
 """Decode and log angular data from AMS AS5048A."""
 # pylint: disable=fixme, missing-function-docstring
 import argparse
+import csv
 import json
 import threading
 from typing import Any, List
@@ -29,27 +30,51 @@ def data_reader() -> None:
 
 @app.route('/')
 def index() -> Any:
-    print('index')
     return app.send_static_file('index.html')
 
 @app.route('/timeseries')
 def timeseries() -> Any:
-    print('timeseries')
     return app.send_static_file('timeseries.html')
 
 def data(filename: str) -> Any:
+    json_payload = data_dataframe(filename)
+    #json_payload = data_verbatim(filename)
+    return Response(json_payload, mimetype='application/json')
+
+def data_dataframe(filename: str) -> Any:
+    """pandas parses the dates and produces ints that javascript can read"""
     dataframe = pd.read_csv(filename, delim_whitespace=True, index_col=0, parse_dates=True,
                             header=None, names=['time', 'angle', 'volume'])
-    json_payload = json.dumps(dataframe.to_records().tolist())
-    return Response(json_payload, mimetype='application/json')
+    return json.dumps(dataframe.to_records().tolist())
+
+def data_verbatim(filename: str) -> Any:
+    """or we can just pass the strings verbatim"""
+    return json.dumps(list(csv.reader(open(filename), delimiter='\t')))
 
 @app.route('/data_by_sec')
 def data_by_sec() -> Any:
+    """the per-second data is truncated periodically"""
     return data(DATA_SEC)
 
 @app.route('/data_by_min')
 def data_by_min() -> Any:
+    """the per-minute data is the archival master"""
     return data(DATA_MIN)
+
+def downsampled_data(freq: str) -> Any:
+    dataframe = pd.read_csv(DATA_MIN, delim_whitespace=True, index_col=0, parse_dates=True,
+                            header=None, names=['time', 'angle', 'volume'])
+    df_by_hr = dataframe.resample(freq).sum()
+    json_payload = json.dumps(df_by_hr.to_records().tolist())
+    return Response(json_payload, mimetype='application/json')
+
+@app.route('/data_by_hr')
+def data_by_hr() -> Any:
+    return downsampled_data('H')
+
+@app.route('/data_by_day')
+def data_by_day() -> Any:
+    return downsampled_data('D')
 
 def main() -> None:
     threading.Thread(target=data_reader).start()

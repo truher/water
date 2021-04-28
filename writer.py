@@ -3,6 +3,9 @@
 from collections import deque
 from datetime import datetime
 from typing import Deque
+import pytz
+
+#TIMEZONE = pytz.timezone("America/Los_Angeles")
 
 class DataWriter:
     """write a line every so often"""
@@ -35,8 +38,10 @@ class DataWriter:
         if now_s % self.write_mod_sec != 0:
             return
 
+        #dt_now: datetime = datetime.fromtimestamp(now_s, tz=TIMEZONE)
+        #dts: str = dt_now.isoformat() + '.' + str(int(now_ns % 1000000000)).zfill(9)
         dt_now: datetime = datetime.utcfromtimestamp(now_s)
-        dts: str = dt_now.isoformat() + '.' + str(int(now_ns % 1000000000)).zfill(9)
+        dts: str = dt_now.strftime('%Y-%m-%dT%H:%M:%S') + '.' + str(int(now_ns % 1000000000)).zfill(9)
         delta_cumulative_angle = cumulative_angle - self.cumulative_angle
         delta_volume_ul = cumulative_volume_ul - self.cumulative_volume_ul
 
