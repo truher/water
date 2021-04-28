@@ -25,7 +25,8 @@ def parse() -> argparse.Namespace:
     return args
 
 def data_reader() -> None:
-    writers: List[DataWriter] = [DataWriter(DATA_SEC, 1, 1000), DataWriter(DATA_MIN, 60, 0)]
+    # retain 7d of 1s 
+    writers: List[DataWriter] = [DataWriter(DATA_SEC, 1, 604800), DataWriter(DATA_MIN, 60, 0)]
     Reader(spi.make_and_setup_spi(parse()), writers).run()
 
 @app.route('/')
