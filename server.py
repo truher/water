@@ -35,10 +35,12 @@ def data_reader() -> None:
 
 @app.route('/')
 def index() -> Any:
+    logging.info("index")
     return app.send_static_file('index.html')
 
 @app.route('/timeseries')
 def timeseries() -> Any:
+    logging.info("timeseries")
     return app.send_static_file('timeseries.html')
 
 def data(filename: str) -> Any:
@@ -59,11 +61,13 @@ def data_verbatim(filename: str) -> Any:
 @app.route('/data_by_sec')
 def data_by_sec() -> Any:
     """the per-second data is truncated periodically"""
+    logging.info("data_by_sec")
     return data(DATA_SEC)
 
 @app.route('/data_by_min')
 def data_by_min() -> Any:
     """the per-minute data is the archival master"""
+    logging.info("data_by_min")
     return data(DATA_MIN)
 
 def downsampled_data(freq: str) -> Any:
@@ -75,10 +79,12 @@ def downsampled_data(freq: str) -> Any:
 
 @app.route('/data_by_hr')
 def data_by_hr() -> Any:
+    logging.info("data_by_hr")
     return downsampled_data('H')
 
 @app.route('/data_by_day')
 def data_by_day() -> Any:
+    logging.info("data_by_day")
     return downsampled_data('D')
 
 def main() -> None:
