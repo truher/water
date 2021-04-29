@@ -1,6 +1,7 @@
 """Decode and log angular data from AMS AS5048A."""
 # pylint: disable=import-error, import-outside-toplevel, fixme
 import time
+import logging
 from typing import Any, List
 from meter import Meter
 from volume import Volume
@@ -45,8 +46,8 @@ class Reader:
                     writer.write(now_ns, meter.read(), volume.read())
 
             except Sensor.ResponseLengthException as err:
-                print(f"Response Length Exception {err}")
+                logging.error("Response Length Exception %s", err)
             except Sensor.ResponseParityException as err:
-                print(f"Response Parity Exception {err}")
+                logging.error("Response Parity Exception %s", err)
             except Sensor.ResponseErrorRegisterException as err:
-                print(f"Response Error Register {err}")
+                logging.error("Response Error Register %s", err)

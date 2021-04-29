@@ -1,6 +1,7 @@
 """Decode and log angular data from AMS AS5048A."""
 # pylint: disable=import-error, import-outside-toplevel
 import argparse
+import logging
 from typing import Any
 
 def make_and_setup_spi(args: argparse.Namespace) -> Any:
@@ -12,10 +13,10 @@ def make_and_setup_spi(args: argparse.Namespace) -> Any:
 def make_spi(args: argparse.Namespace) -> Any:
     """poor man's DI"""
     if args.fake:
-        print("using fake spidev")
+        logging.info("using fake spidev")
         import sim
         return sim.SimulatorSpiDev()
-    print("using real spidev")
+    logging.info("using real spidev")
     import spidev # type: ignore
     return spidev.SpiDev()
 

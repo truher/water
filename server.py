@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+import logging
 import threading
 from typing import Any, List
 import pandas as pd #type:ignore
@@ -11,6 +12,9 @@ from waitress import serve
 from reader import Reader
 from writer import DataWriter
 import spi
+
+logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', datefmt='%Y-%m-%dT%H:%M:%S',
+                    level=logging.DEBUG)
 
 app = Flask(__name__)
 
@@ -25,7 +29,7 @@ def parse() -> argparse.Namespace:
     return args
 
 def data_reader() -> None:
-    # retain 7d of 1s 
+    # retain 7d of 1s
     writers: List[DataWriter] = [DataWriter(DATA_SEC, 1, 604800), DataWriter(DATA_MIN, 60, 0)]
     Reader(spi.make_and_setup_spi(parse()), writers).run()
 

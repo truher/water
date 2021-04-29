@@ -1,10 +1,10 @@
 """Write data files"""
 # pylint: disable=too-few-public-methods
+import logging
 from collections import deque
 from datetime import datetime
 from typing import Deque
-import pytz
-
+#import pytz
 #TIMEZONE = pytz.timezone("America/Los_Angeles")
 
 class DataWriter:
@@ -20,6 +20,7 @@ class DataWriter:
 
     def _trim(self, now_s: int) -> None:
         if self.trunc_mod_sec != 0 and now_s % self.trunc_mod_sec == 0:
+            logging.info("trim: %s %s %s", self.trunc_mod_sec, now_s, now_s % self.trunc_mod_sec)
             self.sink.close()
             whole_file: Deque[bytes] = deque(open(self.filename, 'rb'), maxlen=self.trunc_mod_sec)
             self.sink = open(self.filename, 'wb')
@@ -41,7 +42,8 @@ class DataWriter:
         #dt_now: datetime = datetime.fromtimestamp(now_s, tz=TIMEZONE)
         #dts: str = dt_now.isoformat() + '.' + str(int(now_ns % 1000000000)).zfill(9)
         dt_now: datetime = datetime.utcfromtimestamp(now_s)
-        dts: str = dt_now.strftime('%Y-%m-%dT%H:%M:%S') + '.' + str(int(now_ns % 1000000000)).zfill(9)
+        dts: str = (dt_now.strftime('%Y-%m-%dT%H:%M:%S') + '.'
+                    + str(int(now_ns % 1000000000)).zfill(9))
         delta_cumulative_angle = cumulative_angle - self.cumulative_angle
         delta_volume_ul = cumulative_volume_ul - self.cumulative_volume_ul
 

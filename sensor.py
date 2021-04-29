@@ -1,4 +1,5 @@
 """Details of the sensor SPI interface."""
+import logging
 from typing import Any, List
 from datetime import datetime
 import lib
@@ -81,7 +82,7 @@ class Sensor:
 
         err: int = res & Sensor.ERR_MASK
         if err:
-            print ("err flag set!")
+            logging.error("err flag set!")
             # ignore the response, try to clear the error, ignore the response
             self.spi.xfer2([((Sensor.ERR_REQUEST >> 8) & 0xff),
                            Sensor.ERR_REQUEST & 0xff])
@@ -110,6 +111,6 @@ class Sensor:
         agc: int       = diagnostic & 0b0000000011111111
 
         now_s: str = datetime.now().isoformat(timespec='microseconds')
-        print(f"time: {now_s} angle: {angle:5} magnitude: {magnitude:5} "
-              f"comp_high: {comp_high>0:d} comp_low: {comp_low>0:d} "
-              f"cof: {cof>0:d} ocf: {ocf>0:d} agc: {agc>0:d}")
+        logging.info("time: %s angle: %5d magnitude: %5d comp_high: %0d comp_low: %0d cof: %0d"
+                     " ocf: %0d agc: %0d",
+                     now_s, angle, magnitude, comp_high, comp_low, cof, ocf, agc)

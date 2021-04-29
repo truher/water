@@ -1,5 +1,7 @@
 """libary for Meter behavior"""
 # pylint: disable=fixme
+import logging
+
 class Meter:
     """Keep the angular state of the meter."""
     def __init__(self) -> None:
@@ -16,7 +18,7 @@ class Meter:
         """handle an angle observation. call frequently to avoid aliasing"""
         if angle == 0:
             # TODO: zero is not *always* an error.  fix this.
-            print("skipping zero result")
+            logging.error("skipping zero result")
             return
         if self.angle == 0:
             self.angle = angle
