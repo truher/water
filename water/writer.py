@@ -1,6 +1,7 @@
 """Writes and reads data files."""
 # pylint: disable=too-few-public-methods
 import logging
+import os
 from collections import deque
 from datetime import datetime
 from typing import Any, Deque
@@ -14,17 +15,21 @@ class DataWriter:
         self.filename = filename
         self.write_mod_sec = write_mod_sec
         self.trunc_mod_sec = trunc_mod_sec
-        self.sink = open(filename, 'ab')
+        os.makedirs('data', exist_ok=True)
+        self.sink = open(self._path(), 'ab')
         self.cumulative_angle = 0
         self.cumulative_volume_ul = 0
         self.current_second: int = 0
+
+    def _path(self) -> str:
+        return 'data/' + self.filename
 
     def _trim(self, now_s: int) -> None:
         if self.trunc_mod_sec != 0 and now_s % self.trunc_mod_sec == 0:
             logging.info("trim: %s %s %s", self.trunc_mod_sec, now_s, now_s % self.trunc_mod_sec)
             self.sink.close()
-            whole_file: Deque[bytes] = deque(open(self.filename, 'rb'), maxlen=self.trunc_mod_sec)
-            self.sink = open(self.filename, 'wb')
+            whole_file: Deque[bytes] = deque(open(self._path(), 'rb'), maxlen=self.trunc_mod_sec)
+            self.sink = open(self._path(), 'wb')
             self.sink.writelines(whole_file)
             self.sink.flush()
 
@@ -56,5 +61,5 @@ class DataWriter:
 
     def read(self) -> Any:
         """Reads the entire file as a dataframe."""
-        return pd.read_csv(self.filename, delim_whitespace=True, index_col=0, parse_dates=True,
+        return pd.read_csv(self._path(), delim_whitespace=True, index_col=0, parse_dates=True,
                            header=None, names=['time', 'angle', 'volume_ul', 'volume_gal'])

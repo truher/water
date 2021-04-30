@@ -1,8 +1,8 @@
 """Tests the library."""
 from typing import List
 import unittest
-import lib
-from sensor import Sensor
+import water.lib as lib
+from water.sensor import Sensor
 
 #pylint: disable=no-self-use, unused-argument, missing-function-docstring, missing-class-docstring, too-few-public-methods
 class TestLib(unittest.TestCase):
@@ -23,8 +23,7 @@ class TestLib(unittest.TestCase):
         fsd: FakeSpiDev = FakeSpiDev()
         sensor = Sensor(fsd)
         response = sensor.transfer(-2)
-        self.assertEqual(-1, response,
-            msg='')
+        self.assertEqual(0, response, msg='')
 
     def test_sensor_short(self) -> None:
         class TooShortSpiDev:

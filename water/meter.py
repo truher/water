@@ -1,9 +1,9 @@
-"""libary for Meter behavior"""
+"""Maintains the state of the meter."""
 # pylint: disable=fixme
 import logging
 
 class Meter:
-    """Keep the angular state of the meter."""
+    """Keeps the angular state of the meter."""
     def __init__(self) -> None:
         self.turns: int = 0
         self.angle: int = 0
@@ -15,7 +15,10 @@ class Meter:
     _ZERO_CROSSING_THRESHOLD: int = 7168
 
     def update(self, angle: int) -> None:
-        """handle an angle observation. call frequently to avoid aliasing"""
+        """Handles an angle observation.
+
+        Call frequently to avoid aliasing
+        """
         if angle == 0:
             # TODO: zero is not *always* an error.  fix this.
             logging.error("skipping zero result")
@@ -32,5 +35,5 @@ class Meter:
 
 
     def read(self) -> int:
-        """read the cumulative angle"""
+        """Reads the cumulative angle."""
         return self.turns * 16384 + self.angle

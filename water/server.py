@@ -16,11 +16,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', datefmt='%Y-
 
 app = Flask(__name__)
 
-DATA_SEC = "data_sec" # temporary
-DATA_MIN = "data_min" # permanent
-
-writer_min = DataWriter(DATA_MIN, 60, 0)     # archival, keep forever
-writer_sec = DataWriter(DATA_SEC, 1, 604800) # temporary, keep 7 days
+writer_min = DataWriter("data_min", 60, 0)     # archival, keep forever
+writer_sec = DataWriter("data_sec", 1, 604800) # temporary, keep 7 days
 
 def parse() -> argparse.Namespace:
     parser: argparse.ArgumentParser = argparse.ArgumentParser()
@@ -48,7 +45,7 @@ def index() -> Any:
 
 @app.route('/timeseries/<freq>')
 def timeseries(freq: str) -> Any:
-    logging.info("timeseries")
+    logging.info("timeseries %s", freq)
     return app.send_static_file('timeseries.html')
 
 @app.route('/data/<freq>')

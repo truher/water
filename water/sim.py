@@ -1,4 +1,4 @@
-"""Simulated spi interface"""
+"""Simulates spi interface."""
 # pylint: disable=fixme
 from datetime import datetime
 from math import log
@@ -14,13 +14,16 @@ LOW_INCREMENT = 0
 
 #pylint: disable=too-few-public-methods
 class SimulatorSpiDev:
-    """simulated sensor"""
+    """Simulates the sensor."""
     def __init__(self) -> None:
         self.angle: int = 0
 
     @staticmethod
     def _noise() -> int:
-        """based on eyeballing the error distribution, it's logistic"""
+        """Duplicates the noise distribution
+
+        Based on eyeballing the error distribution, I think it's logistic.
+        """
         p_val: float = random()
         return int(11 * log(p_val / (1 - p_val)))
 

@@ -1,6 +1,5 @@
-""" Computes delivered volume from meter readings."""
+"""Computes delivered volume from meter readings."""
 # pylint: disable=invalid-name
-import math
 
 class Volume:
     """Calculates volume delivered."""
@@ -16,8 +15,7 @@ class Volume:
         https://docs.google.com/spreadsheets/d/1O37uR9_JQVNBmYMsrM4oETmit82RlsSE_1_1l7Ao1wo
         """
         x: int = max(800, abs(angle_per_sec))
-        f: float = 1.995 + 7970 * pow(abs(x), -1.503)
-        return math.copysign(1, angle_per_sec) * f
+        return -1.995 - 7970 * pow(abs(x), -1.503)
 
     @staticmethod
     def _volume_ul(delta_cumulative_angle: int) -> int:

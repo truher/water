@@ -1,4 +1,4 @@
-"""Details of the sensor SPI interface."""
+"""Implements details of the sensor SPI interface."""
 import logging
 from typing import Any, List
 from datetime import datetime
@@ -34,9 +34,9 @@ import lib
 # note that nop is exactly 0x0000 even though it's a "read"
 
 class Sensor:
-    """Wrapper for talking to the sensor."""
+    """Talks to the sensor."""
     def __init__(self, spi: Any) -> None:
-        """Init with supplied SpiDev."""
+        """Initalizes with supplied SpiDev."""
         self.spi = spi
 
     #                           PR<----addr---->
@@ -70,7 +70,7 @@ class Sensor:
         return res
 
     def transfer(self, req: int) -> int:
-        """SPI transfer request, read and return response, check parity."""
+        """Makes SPI request, read and return response, check parity."""
         reqh: int = (req >> 8) & 0xff
         reql: int = req & 0xff
 
@@ -94,7 +94,7 @@ class Sensor:
         return res
 
     def verbose(self) -> None:
-        """debugging output"""
+        """Produces debugging output."""
         self.transfer(Sensor.ANGLE_READ_REQUEST)
         angle: int = self.transfer(Sensor.NOP_REQUEST) & Sensor.RESPONSE_MASK
 

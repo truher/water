@@ -1,16 +1,16 @@
-"""Decode and log angular data from AMS AS5048A."""
+"""Decodes and logs angular data from AMS AS5048A."""
 # pylint: disable=import-error, import-outside-toplevel, fixme
 import time
 import logging
 from typing import Any, List
 from meter import Meter
+from sensor import Sensor
 from volume import Volume
 from writer import DataWriter
-from sensor import Sensor
 
 # pylint: disable=too-few-public-methods
 class Reader:
-    """read from the sensor"""
+    """Reads data from the sensor and sends it to the listeners."""
     def __init__(self, spi: Any, writers: List[DataWriter]) -> None:
         self.spi = spi
         self.writers = writers
@@ -23,7 +23,7 @@ class Reader:
     _SAMPLE_PERIOD_NS: int = 5000000 # 0.005s
 
     def run(self) -> None:
-        """read input"""
+        """Handles input in a continuous loop."""
 
         sensor: Sensor = Sensor(self.spi)
         meter: Meter = Meter()
