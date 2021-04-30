@@ -36,6 +36,12 @@ class DataWriter:
     def write(self, now_ns: int, cumulative_angle: int, cumulative_volume_ul:int) -> None:
         """Writes the delta corresponding to the mod"""
         now_s = int(now_ns // 1000000000)
+        if self.current_second == 0:
+            self.current_second = now_s
+            self.cumulative_angle = cumulative_angle
+            self.cumulative_volume_ul = cumulative_volume_ul
+            return
+
         if now_s <= self.current_second:
             return
         self.current_second = now_s
