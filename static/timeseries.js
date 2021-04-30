@@ -39,7 +39,7 @@ d3.json(url).then(function(data) {
     .data(data)
     .enter().append('tr');
   var cells = rows.selectAll('td')
-    .data(d=>[datestring(d[0]),d[1],d[2],d[3]])
+    .data(d=>[datestring(d[0]),d[1],d[2],d3.format('.3f')(d[3])])
     .enter().append('td')
     .text(d=>d);
 });

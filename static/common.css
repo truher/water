@@ -26,3 +26,7 @@ table, th, td {
 div#table {
   padding: 20px;
 }
+
+td {
+  text-align: right;
+}

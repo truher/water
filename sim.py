@@ -4,13 +4,13 @@ from datetime import datetime
 from math import log
 from random import random
 from typing import List
+import logging
 import lib
 
-# negative angle is positive flow
-# i think 4000 is about full speed? TODO: find out
 # TODO: make this about time instead, make it adjustable
-HIGH_INCREMENT = -4000
-LOW_INCREMENT = -400
+# 1200 is the max i could get with the hose, max rated, 30gpm, is about 4000
+HIGH_INCREMENT = -1200
+LOW_INCREMENT = 0
 
 #pylint: disable=too-few-public-methods
 class SimulatorSpiDev:
@@ -27,7 +27,9 @@ class SimulatorSpiDev:
     #pylint: disable=unused-argument, missing-function-docstring
     def xfer2(self, req: List[int]) -> List[int]:
         if len(req) != 2:
+            logging.error("wrong length request")
             return [0, 0]
+
         if req[0] == 0xff and req[1] == 0xff:
             if datetime.now().minute % 2 == 0:
                 self.angle += HIGH_INCREMENT
@@ -48,6 +50,7 @@ class SimulatorSpiDev:
             parity: int = lib.has_even_parity(observation)
             return [((not parity) << 7) | (observation >> 8) & 0xff, observation & 0xff]
 
+        logging.error("weird request")
         return [0, 0] # this should produce an error
 
     def open(self, bus: int, device: int) -> None:
