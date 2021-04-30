@@ -1,11 +1,11 @@
 """Decodes and logs angular data from AMS AS5048A."""
-# pylint: disable=fixme, missing-function-docstring
+# pylint: disable=fixme, missing-function-docstring, inconsistent-return-statements
 import argparse
 import json
 import logging
 import threading
 from typing import Any
-from flask import Flask, Response
+from flask import abort, Flask, Response
 from waitress import serve
 from reader import Reader
 from writer import DataWriter
@@ -46,30 +46,23 @@ def index() -> Any:
     logging.info("index")
     return app.send_static_file('index.html')
 
-@app.route('/timeseries')
-def timeseries() -> Any:
+@app.route('/timeseries/<freq>')
+def timeseries(freq: str) -> Any:
     logging.info("timeseries")
     return app.send_static_file('timeseries.html')
 
-@app.route('/data_by_sec')
-def data_by_sec() -> Any:
-    logging.info("data_by_sec")
-    return json_response(writer_sec.read())
-
-@app.route('/data_by_min')
-def data_by_min() -> Any:
-    logging.info("data_by_min")
-    return json_response(writer_min.read())
-
-@app.route('/data_by_hr')
-def data_by_hr() -> Any:
-    logging.info("data_by_hr")
-    return json_response(downsample(writer_min.read(), 'H'))
-
-@app.route('/data_by_day')
-def data_by_day() -> Any:
-    logging.info("data_by_day")
-    return json_response(downsample(writer_min.read(), 'D'))
+@app.route('/data/<freq>')
+def data(freq: str) -> Any:
+    logging.info('data %s', freq)
+    if freq == 'S':
+        return json_response(writer_sec.read())
+    if freq == 'T':
+        return json_response(writer_min.read())
+    if freq == 'H':
+        return json_response(downsample(writer_min.read(), 'H'))
+    if freq == 'D':
+        return json_response(downsample(writer_min.read(), 'D'))
+    abort(404, 'Bad parameter')
 
 def main() -> None:
     threading.Thread(target=data_reader).start()
