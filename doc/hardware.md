@@ -2,7 +2,10 @@
 
 To measure the water flow, I used the
 [Neptune T-10 mechanical meter,](https://www.neptunetg.com/globalassets/products/literature/20-004231-ps-t-10-small-02.20.pdf)
-which is a
+
+<img src="https://cdn11.bigcommerce.com/s-iaojjj3/images/stencil/1280x1280/products/209/1041/Neptune_T-10-angle__80463.1497552311.jpg" width="300">
+
+The T-10 is a
 [nutating disc](https://en.wikipedia.org/wiki/Nutating_disc_engine#Water_meters)
 design with a magnetic interface to the register, the most common design of
 mechanical meter, about 150 years old.  It's very popular (though less now,
@@ -18,8 +21,14 @@ I can hear.
 
 For plumbing, I also need couplers, which use rubber gaskets, 
 [available locally at home depot for about $20 each,](https://www.homedepot.com/p/Everbilt-3-4-in-FIP-x-1-in-MIP-Brass-Adapter-Fitting-801829/300096110)
-which seems high, but whatever, and also copper fittings, 
+which seems high, but whatever.
+
+<img src="https://images.thdstatic.com/productImages/1b7519b2-4040-4781-bb44-c7ae9211a75f/svn/brass-everbilt-brass-fittings-801829-64_1000.jpg" width="300">
+
+I also need copper fittings, 
 [about $4 each at home depot.](https://www.homedepot.com/p/Everbilt-3-4-in-Copper-Pressure-Cup-x-FIP-Female-Adapter-Fitting-C603HD34/100347144)
+
+<img src="https://images.thdstatic.com/productImages/67dc4127-67e1-4bfb-a299-161ada7ec448/svn/copper-everbilt-copper-fittings-c603hd34-64_1000.jpg" width="300">
 
 The T-10 comes with a "direct read" mechanical odometer-style register, which
 is easily removable.
