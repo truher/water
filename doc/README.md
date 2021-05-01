@@ -60,7 +60,14 @@ as high as the sensor wants: it complains, using the "comp_high" signal, which
 indicates that the front end amplifier is at maximum gain, and it reports a
 "magnitude" of about 400, which is only 10% of the magnitude of
 [the little demo knob.](https://ams.com/rmh05-dk-xx)
-Still, the angle seems to be reported reliably; I suspect the effect of the
+The AS5048 doc claims that out-of-range fields can be ok:
+
+> However, a magnetic field outside the specified range may still
+produce usable results, but the out-of-range condition will be
+indicated by indication flags.
+
+In practice, the angle seems to be reported reliably even though the magnitude
+is low.  Maybe the effect of the
 low magnitude is in the noise of the output, which seems high (see below),
 but still totally usable.
 
@@ -112,6 +119,78 @@ goes wrong, for example
 (if only they sold direct),
 or I could just make one out of PVC NPT fittings, which will probably
 work well enough to seal against the soft rubber gasket.
+
+## Raspberry Pi Setup
+
+I used the Raspios Buster "lite" image:
+
+```
+wget https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2020-12-04/2020-12-02-raspios-buster-armhf-lite.zip
+unzip 2020-12-02-raspios-buster-armhf-lite.zip
+```
+
+Which yields the image file, 2020-12-02-raspios-buster-armhf-lite.img.
+
+I followed the
+[install directions.](https://www.raspberrypi.org/documentation/installation/installing-images/linux.md)
+Attaching an SD card, I looked for it:
+
+```
+$ lsblk -p
+
+/dev/sdb           8:16   1  29.7G  0 disk 
+`-/dev/sdb1        8:17   1  29.7G  0 part 
+```
+
+So I unmounted it:
+
+```
+$ sudo umount /dev/sdb1
+```
+
+and copied the image:
+
+```
+$ sudo dd bs=4M if=2020-12-02-raspios-buster-armhf-lite.img of=/dev/sdb conv=fsync
+
+443+0 records in
+443+0 records out
+1858076672 bytes (1.9 GB, 1.7 GiB) copied, 66.5597 s, 27.9 MB/s
+```
+
+To set up SSH, first I mounted the SD card at /media/joel, and touched
+the ssh file to tell the Pi to run the SSH server
+
+```
+touch /media/joel/boot/ssh
+```
+
+I made a new key:
+
+```
+$ ssh-keygen -t ed25519 
+Generating public/private ed25519 key pair.
+Enter file in which to save the key (/home/joel/.ssh/id_ed25519): /home/joel/.ssh/id_pi_ed25519
+```
+
+I copied the public key to the Pi:
+```
+$ cp /home/joel/.ssh/id_pi_ed25519.pub /media/joel/rootfs/home/pi/.ssh/authorized_keys
+```
+
+I followed the
+[SSH hardening instructions](https://www.instructables.com/Raspberry-Pi-SSH-Hardening/)
+which involve modifying /media/joel/rootfs/etc/ssh/ssh_config 
+and /media/joel/rootfs/etc/ssh/sshd_config
+
+I also disabled wifi and bluetooth by modifying /boot/config.txt:
+
+```
+dtoverlay=disable-wifi
+dtoverlay=disable-bt
+```
+
+
 
 ## SPI Interface
 
@@ -253,22 +332,45 @@ First setup the pi for ssh, and then ssh to it:
 
 ```
 ssh-add ~/.ssh/id_pi_ed25519
-ssh -i .ssh/id_pi_ed25519 pi@192.168.x.x
+ssh -i .ssh/id_pi_ed25519 pi@raspberrypi.local
 sudo apt update
 sudo apt upgrade
 sudo apt install git
 git clone https://github.com/truher/water.git
 ```
 
-Then run the setup script
+Then run the setup script, which adds libraries.
 
 ```
 bash bin/setup.sh
 ```
 
-TODO: i think there's something about SPI that needed setup.  is that true?
+Also enable the SPI interface (as pointed out 
+[here](https://www.raspberrypi-spy.co.uk/2014/08/enabling-the-spi-interface-on-the-raspberry-pi/)
+by modifing the config file:
 
-Then deploying code is just
+```
+sudo vi /boot/config.txt
+```
+
+So that it contains the following line:
+
+```
+dtparam=spi=on
+```
+
+And reboot.  To confirm, find the spi entry in lsmod:
+
+```
+$ lsmod | grep spi_
+spi_bcm2835            20480  0
+```
+
+```
+sudo reboot
+```
+
+Deploying code is just
 
 ```
 git pull
@@ -282,41 +384,5 @@ bash bin/run.sh
 
 ## Linting
 
-For javascript linting, I used the demo at eslint.org.
-
-## Alternatives
-
-I investigated a bunch of options I decided not to go with:
-
-* Could I make the Pi totally stateless, PXE boot, docker blah blah?  Yeah, but
-whatever, doing the setup manually wasn't hard, and that way there's no runtime
-dependency.
-
-* Could I use colab or some other data analysis tool to make charts, e.g. by
-pushing data to the cloud, for example as described
-[here?](https://codelabs.developers.google.com/codelabs/iot-data-pipeline)
-Yeah, but charts aren't hard to make locally.
-
-* Should I include a valve inline?  No, the city valve is fine.
-
-* I considered observing the city meter, which is a nice
-[Badger ultrasonic unit,](https://www.badgermeter.com/products/meters/ultrasonic-flow-meters/residential-ultrasonic-flow-meters/)
-with an
-[Itron 100W radio.](https://www.itron.com/-/media/feature/products/documents/spec-sheet/100w-water-endpoint-web-101020sp07.pdf)
-But the only way I could think of to do it, without modifying it in any way
-(e.g. cutting into the cable somehow),
-was to set up a camera above the display, which seemed lame and expensive.
-
-* I considered using some sort of stubs to mount the meter, e.g. the thing
-called a "setter," but mounting it inline seems simpler, more protected 
-from freezing, etc.
-
-* Note, the water meter threads used in the US are unusual; using a meter
-made for another market (e.g. Europe) would entail some quirkiness.
-
-* I considered a direct digital interface like 
-[this guy](http://jimlaurwilliams.org/wordpress/?p=3048)
-but that seemed more complicated than the magnetic interface.
-
-* I considered nylon meters, which are completely lead-free,
-but I like the strength and ground path of bronze.
+For javascript linting, I used the demo at eslint.org.  For Python I used 
+both pylint and mypy.
