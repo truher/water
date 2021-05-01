@@ -23,6 +23,10 @@ def make_spi(args: argparse.Namespace) -> Any:
 def setup_spi(spi: Any) -> None:
     """Sets speed etc."""
     spi.open(0, 0)
-    #spi.max_speed_hz = 1000000
-    spi.max_speed_hz = 4000
+    # sample rate is 250hz
+    # each sample is 16 bits + 400ns
+    # so min rate is a little more than 4khz
+    # but RPi4 has a bug that halves the actual
+    # so choose 10khz
+    spi.max_speed_hz = 10000
     spi.mode = 1
