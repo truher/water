@@ -1,4 +1,7 @@
 #!/usr/bin/bash
+
+# Setup script for Raspberry Pi 4.0
+
 sudo apt install -y \
   git \
   python3 \

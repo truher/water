@@ -15,12 +15,7 @@ class Reader:
         self.spi = spi
         self.writers = writers
 
-    # 5hz full speed
-    # nyquist would be 10hz sample rate
-    # let's leave it at 50hz for now
-    # maybe reduce it later
-    #sample_period_ns = 2e7 # 0.02s
-    _SAMPLE_PERIOD_NS: int = 5000000 # 0.005s
+    _SAMPLE_PERIOD_NS: int = 4000000 # 0.004s = 250hz = 4x oversampling
 
     def run(self) -> None:
         """Handles input in a continuous loop."""
@@ -39,6 +34,7 @@ class Reader:
 
                 # TODO: hide this spi-specific stuff
                 angle = sensor.transfer(Sensor.ANGLE_READ_REQUEST) & Sensor.RESPONSE_MASK
+                logging.info("angle %s", angle)
 
                 meter.update(angle)
                 volume.update(now_ns, meter.read())

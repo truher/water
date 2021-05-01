@@ -8,11 +8,7 @@ class Meter:
         self.turns: int = 0
         self.angle: int = 0
 
-    # 5hz full speed
-    # 50hz sample rate
-    # = 10 samples per revolution
-    # so make threshold double that
-    _ZERO_CROSSING_THRESHOLD: int = 7168
+    _ZERO_CROSSING_THRESHOLD: int = 8192
 
     def update(self, angle: int) -> None:
         """Handles an angle observation.
