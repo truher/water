@@ -9,6 +9,7 @@ sudo apt install -y \
   python3-pip \
   libatlas-base-dev
 python3 -m pip install \
+  spidev \
   waitress \
   flask \
   pandas
