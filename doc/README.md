@@ -21,18 +21,18 @@ I replaced the mechanical register with a magnetometer with a SPI interface.
 There are many to choose from, manufactured by AMS.  I chose the
 [AS5048](https://ams.com/documents/20143/36005/AS5048_DS000298_4-00.pdf)
 because it's available in a
-([little breakout board:](https://ams.com/documents/20143/36005/AS5048_UG000223_1-00.pdf))
+[little breakout board:](https://ams.com/documents/20143/36005/AS5048_UG000223_1-00.pdf)
 
-<img src="https://ams.com/documents/20143/36005/AS5048A_IM000200_1-00.png" width="100">
+<img src="https://ams.com/documents/20143/36005/AS5048A_IM000200_1-00.png" width="300">
 
 To mount the board to the meter, I designed 
 [an adapter](https://cad.onshape.com/documents/ed2b755e4b344f41f9b4f153/w/52855fbdfec80d94d3c574bc/e/c719515288ca89ce0e0c505f)
 suitable for 3d printing.
 
 I soldered cat-5 cable to the AMS board, and on the pi end, I used
-[a screw terminal hat.](https://www.adafruit.com/product/2711)
+[a screw terminal hat:](https://www.adafruit.com/product/2711)
 
-<img src="https://cdn-shop.adafruit.com/1200x900/2711-07.jpg" width="100">
+<img src="https://cdn-shop.adafruit.com/1200x900/2711-07.jpg" width="300">
 
 ## Data storage
 
