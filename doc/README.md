@@ -2,8 +2,14 @@
 
 ## Bugs
 
-The per-second file is set up to be truncated every 7 days, but it seems like
+* The per-second file is set up to be truncated every 7 days, but it seems like
 it's being truncated more often than that.
+
+* When the error flag is set, I am trying to consume and display the error
+code, and then resume, but I don't think that's working right; I get zero
+as the error code, and then another zero where I expect real data.  For now
+I'm just ignoring zeros, which has no ill effect since the measurement
+is cumulative, but I should make the error handling work.
 
 ## Hardware
 
@@ -13,10 +19,18 @@ which is a
 [nutating disc](https://en.wikipedia.org/wiki/Nutating_disc_engine#Water_meters)
 design with a magnetic interface to the register, the most common design of
 mechanical meter, about 150 years old.  It's very popular (though less now,
-with the advent of ultrasonic meters), it's been around forever, it's lead-free,
-and it's easy to buy new on ebay.
+with the advent of ultrasonic meters), it's been around forever, made in the USA,
+it's lead-free, NSF 61 certified (and cast into the body),
+and it's easy to 
+[buy new on ebay, for about $60.](https://www.ebay.com/itm/Neptune-5-8x3-4-Water-Meter-T-10-Trident-NSF61-Direct-Read-Cubic-Feet-qty-avail/264510110592)
 
+For plumbing, I also need couplers, which use rubber gaskets, 
+[available locally at home depot for about $20 each,](https://www.homedepot.com/p/Everbilt-3-4-in-FIP-x-1-in-MIP-Brass-Adapter-Fitting-801829/300096110)
+which seems high, but whatever, and also copper fittings, 
+[about $4 each at home depot.](https://www.homedepot.com/p/Everbilt-3-4-in-Copper-Pressure-Cup-x-FIP-Female-Adapter-Fitting-C603HD34/100347144)
 
+The T-10 comes with a "direct read" mechanical odometer-style register, which
+is easily removable.
 I replaced the mechanical register with a magnetometer with a SPI interface.
 There are many to choose from, manufactured by AMS.  I chose the
 [AS5048](https://ams.com/documents/20143/36005/AS5048_DS000298_4-00.pdf)
@@ -29,10 +43,29 @@ To mount the board to the meter, I designed
 [an adapter](https://cad.onshape.com/documents/ed2b755e4b344f41f9b4f153/w/52855fbdfec80d94d3c574bc/e/c719515288ca89ce0e0c505f)
 suitable for 3d printing.
 
+The mount puts the sensor chip against the bronze surface of the meter body,
+which I covered with electrical tape.  Even so, the magnetic signal isn't
+as high as the sensor wants: it complains, using the "comp_high" signal, which 
+indicates that the front end amplifier is at maximum gain, and it reports a
+"magnitude" of about 400, which is only 10% of the magnitude of
+[the little demo knob.](https://ams.com/rmh05-dk-xx)
+Still, the angle seems to be reported reliably; I suspect the effect of the
+low magnitude is in the noise of the output, which seems high (see below),
+but still totally usable.
+
+To read the SPI interface, I used a Raspberry Pi 4 model B with 2GB of memory,
+[available for about $35 from Adafruit.](https://www.adafruit.com/product/4295?src=raspberrypi)
+
 I soldered cat-5 cable to the AMS board, and on the pi end, I used
 [a screw terminal hat:](https://www.adafruit.com/product/2711)
 
 <img src="https://cdn-shop.adafruit.com/1200x900/2711-07.jpg" width="300">
+
+I also covered the board in several coats of conformal coating, after soldering.
+
+The cable is quite long, maybe 50 feet, so I was concerned about the health of
+the SPI protocol.  I tested it at 1Mhz, and it worked but produced parity errors every
+ten seconds or so.  Going slower seems to work fine.
 
 ## Data storage
 
@@ -98,6 +131,16 @@ So that means sampling at about 250hz, i.e. 4ms between samples.
 
 4ms is a lot, so we just use "now" modulo the period, and sleep until the next
 sample.
+
+The SPI timing spec in the AMS datasheet says that there needs to be a total of
+400ns quiescence between messages, and each message is 16 bits long, which
+implies a clock period of just under 250 us, or a frequency of just over 4khz.
+
+There's a
+[bug](https://github.com/raspberrypi/linux/issues/3381) in the RPi4 that makes
+the actual rate half of the requested rate. Since 2015 or so the SPI driver has
+[supported fine-grained dividing](https://www.raspberrypi.org/forums/viewtopic.php?f=44&t=43442&p=347073)
+so choose a nice round number, 10khz.
 
 ## Recording samples
 
