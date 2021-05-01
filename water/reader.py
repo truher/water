@@ -18,7 +18,7 @@ class Reader:
     _SAMPLE_PERIOD_NS: int = 4000000 # 0.004s = 250hz = 4x oversampling
 
     @staticmethod
-    def _wait_for_next_sample(self) -> None:
+    def _wait_for_next_sample() -> None:
         """Sleeps until time to take the next sample."""
         now_ns: int = time.time_ns()
         waiting_ns: int = int(Reader._SAMPLE_PERIOD_NS - (now_ns % Reader._SAMPLE_PERIOD_NS))
