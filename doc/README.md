@@ -1,6 +1,6 @@
 # Docs
 
-## Bugs
+## Bugs/To-do's
 
 * The per-second file is set up to be truncated every 7 days, but it seems like
 it's being truncated more often than that.
@@ -10,6 +10,10 @@ code, and then resume, but I don't think that's working right; I get zero
 as the error code, and then another zero where I expect real data.  For now
 I'm just ignoring zeros, which has no ill effect since the measurement
 is cumulative, but I should make the error handling work.
+
+* There's no backup mechanism for the data.
+
+* There's no babysitter or monitor to make sure the server is always running.
 
 ## Hardware
 
@@ -66,7 +70,10 @@ To read the SPI interface, I used a Raspberry Pi 4 model B with 2GB of memory,
 <img src="https://cdn-shop.adafruit.com/1200x900/4295-05.jpg" width="300">
 
 I soldered cat-5 cable to the AMS board, and on the pi end, I used
-a screw terminal hat, available at
+a 
+[screw terminal hat,](https://alchemy-power.com/pi-ezconnect/)
+([datasheet](https://www.alchemy-power.com/wp-content/uploads/2017/03/Pi-EzConnect.pdf))
+available at
 [Adafruit for about $20.](https://www.adafruit.com/product/2711)
 
 <img src="https://cdn-shop.adafruit.com/1200x900/2711-07.jpg" width="300">
@@ -106,7 +113,59 @@ goes wrong, for example
 or I could just make one out of PVC NPT fittings, which will probably
 work well enough to seal against the soft rubber gasket.
 
-## Data storage
+## SPI Interface
+
+The linux kernel supports SPI through 
+[spidev,](https://www.kernel.org/doc/html/latest/spi/spidev.html)
+described [here,](https://www.kernel.org/doc/Documentation/spi/spidev)
+and there's a
+[Python wrapper for it.](https://github.com/doceme/py-spidev)
+The SPI interface is full-duplex, so the master (the RPi) transmits a command
+at the same time as it receives the reply from the previous command.  For this
+appliation the command is always the same, "read the angle," except in error
+handling.
+
+Note the python interface (and the pi) expect 8-bit words, but the AS5048 uses
+16 bit words, so we use a two-byte sequence, using xfer_2, which strings
+them together.
+
+The AS5048 SPI spec expects that, between commands, CS will be high
+and CLK will be low.  The input is valid on falling CLK and the output
+is valid on rising CLK: 
+
+> "The AS5048A then reads the digital value on the MOSI (master out
+slave in) input with every falling edge of CLK and writes on its
+MISO (master in slave out) output with the rising edge."
+
+This is exctly the definition of "mode 1".
+
+## Server
+
+There's just one Python server that does everything.
+
+
+## Wiring
+
+SPI isn't really 
+[intended](https://electronics.stackexchange.com/questions/163468/spi-max-distance)
+for the 50-foot run I'm using, but it seems fine if it runs slowly enough.
+
+I used four-pair ethernet cable, wired as follows to the RPi GPIO, so that
+the clk and data lines are paired with vcc or gnd.
+
+| SPI  | Cable        | GPIO                     |
+| ---- | ------------ | ------------------------ |
+| 5V   | Orange       | 3.3V (upper left)        |
+| 3.3V | Green        | 3.3V (upper left)        |
+| PWM  | Brown        | N/C                      |
+| CS   | White/Brown  | P24 (near center bottom) |
+| SCK  | Blue         | P23 (upper center)       |
+| MOSI | White/Green  | P19 (upper center)       |
+| MISO | White/Orange | P21 (upper center)       |
+| GND  | White/Blue   | GND (center bottom)      |
+
+
+## Data Storage
 
 Readings are stored in two files, a temporary file at one-second grain, and
 an archival file at one-minute grain.  The archival file is about 65 bytes wide,
@@ -230,7 +289,13 @@ For javascript linting, I used the demo at eslint.org.
 I investigated a bunch of options I decided not to go with:
 
 * Could I make the Pi totally stateless, PXE boot, docker blah blah?  Yeah, but
-whatever, doing the setup manually wasn't hard.
+whatever, doing the setup manually wasn't hard, and that way there's no runtime
+dependency.
+
+* Could I use colab or some other data analysis tool to make charts, e.g. by
+pushing data to the cloud, for example as described
+[here?](https://codelabs.developers.google.com/codelabs/iot-data-pipeline)
+Yeah, but charts aren't hard to make locally.
 
 * Should I include a valve inline?  No, the city valve is fine.
 
