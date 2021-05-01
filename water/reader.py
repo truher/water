@@ -17,6 +17,13 @@ class Reader:
 
     _SAMPLE_PERIOD_NS: int = 4000000 # 0.004s = 250hz = 4x oversampling
 
+    @staticmethod
+    def _wait_for_next_sample(self) -> None:
+        """Sleeps until time to take the next sample."""
+        now_ns: int = time.time_ns()
+        waiting_ns: int = int(Reader._SAMPLE_PERIOD_NS - (now_ns % Reader._SAMPLE_PERIOD_NS))
+        time.sleep(waiting_ns / 1e9)
+
     def run(self) -> None:
         """Handles input in a continuous loop."""
 
@@ -26,10 +33,7 @@ class Reader:
 
         while True:
             try:
-                now_ns: int = time.time_ns()
-                waiting_ns: int = int(Reader._SAMPLE_PERIOD_NS
-                                      - (now_ns % Reader._SAMPLE_PERIOD_NS))
-                time.sleep(waiting_ns / 1e9)
+                Reader._wait_for_next_sample()
                 now_ns = time.time_ns()
 
                 # TODO: hide this spi-specific stuff
