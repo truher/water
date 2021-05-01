@@ -19,10 +19,15 @@ which is a
 [nutating disc](https://en.wikipedia.org/wiki/Nutating_disc_engine#Water_meters)
 design with a magnetic interface to the register, the most common design of
 mechanical meter, about 150 years old.  It's very popular (though less now,
-with the advent of ultrasonic meters), it's been around forever, made in the USA,
+with the advent of ultrasonic meters), rated (and certified by the state
+of California) 95% accurate down to 0.125 gpm,
+it's been around forever, made in the USA,
 it's lead-free, NSF 61 certified (and cast into the body),
 and it's easy to 
 [buy new on ebay, for about $60.](https://www.ebay.com/itm/Neptune-5-8x3-4-Water-Meter-T-10-Trident-NSF61-Direct-Read-Cubic-Feet-qty-avail/264510110592)
+I was concerned that the nutating
+disc type would make a ticking sound, but it doesn't seem to, at least not that
+I can hear.
 
 For plumbing, I also need couplers, which use rubber gaskets, 
 [available locally at home depot for about $20 each,](https://www.homedepot.com/p/Everbilt-3-4-in-FIP-x-1-in-MIP-Brass-Adapter-Fitting-801829/300096110)
@@ -35,7 +40,9 @@ I replaced the mechanical register with a magnetometer with a SPI interface.
 There are many to choose from, manufactured by AMS.  I chose the
 [AS5048](https://ams.com/documents/20143/36005/AS5048_DS000298_4-00.pdf)
 because it's available in a
-[little breakout board:](https://ams.com/documents/20143/36005/AS5048_UG000223_1-00.pdf)
+[little breakout board](https://ams.com/documents/20143/36005/AS5048_UG000223_1-00.pdf)
+which is available from
+[Mouser for about $16](https://www.mouser.com/ProductDetail/ams/AS5048A-TS_EK_AB?qs=Rt6VE0PE%2FOd5D%2Fkw9O7ofA%3D%3D)
 
 <img src="https://ams.com/documents/20143/36005/AS5048A_IM000200_1-00.png" width="300">
 
@@ -56,8 +63,11 @@ but still totally usable.
 To read the SPI interface, I used a Raspberry Pi 4 model B with 2GB of memory,
 [available for about $35 from Adafruit.](https://www.adafruit.com/product/4295?src=raspberrypi)
 
+<img src="https://cdn-shop.adafruit.com/1200x900/4295-05.jpg" width="300">
+
 I soldered cat-5 cable to the AMS board, and on the pi end, I used
-[a screw terminal hat:](https://www.adafruit.com/product/2711)
+a screw terminal hat, available at
+[Adafruit for about $20.](https://www.adafruit.com/product/2711)
 
 <img src="https://cdn-shop.adafruit.com/1200x900/2711-07.jpg" width="300">
 
@@ -66,6 +76,35 @@ I also covered the board in several coats of conformal coating, after soldering.
 The cable is quite long, maybe 50 feet, so I was concerned about the health of
 the SPI protocol.  I tested it at 1Mhz, and it worked but produced parity errors every
 ten seconds or so.  Going slower seems to work fine.
+
+So the total cost of the project is about $180.
+
+## Meter Installation
+
+I found some
+[guidelines](http://scceh.com/Portals/6/Env_Health/consumer_protection/drinking_water/Meter_Tech_Stds.pdf)
+for meter installation that seem useful.
+
+The conventional thing is apparently to dig quite a deep pit, so the meter is
+18 inches below ground level, protected from freezing, with 6-12 inches of
+pea gravel below the meter.  Perhaps these guidelines are for colder climates;
+the city meter is nowhere near 18 inches below ground, it's more like 8 inches.
+
+I looked into the meter thread, which are 
+[unusual.](https://utility-technologies.myshopify.com/pages/water-meter-terminology)
+It's "AWWA" (American Water Works Association) which is one-inch "NPSM"
+(National Pipe Straight Mechanical).
+
+The length between flanges is 7.5 inches, so with 1/8 clearance for gaskets on each end,
+7.75, maybe a bit more?
+
+It would be nice to have a bypass pipe, called an "idler," handy in case something
+goes wrong, for example
+[this one,](https://www.flows.com/plastic-spacer-tube-for-3-4-meter/) or
+[this one](https://assets.fordmeterbox.com/pricebook/h/Water-Meter-Coupling-Price-Book.pdf)
+(if only they sold direct),
+or I could just make one out of PVC NPT fittings, which will probably
+work well enough to seal against the soft rubber gasket.
 
 ## Data storage
 
@@ -186,3 +225,33 @@ bash bin/run.sh
 
 For javascript linting, I used the demo at eslint.org.
 
+## Alternatives
+
+I investigated a bunch of options I decided not to go with:
+
+* Could I make the Pi totally stateless, PXE boot, docker blah blah?  Yeah, but
+whatever, doing the setup manually wasn't hard.
+
+* Should I include a valve inline?  No, the city valve is fine.
+
+* I considered observing the city meter, which is a nice
+[Badger ultrasonic unit,](https://www.badgermeter.com/products/meters/ultrasonic-flow-meters/residential-ultrasonic-flow-meters/)
+with an
+[Itron 100W radio.](https://www.itron.com/-/media/feature/products/documents/spec-sheet/100w-water-endpoint-web-101020sp07.pdf)
+But the only way I could think of to do it, without modifying it in any way
+(e.g. cutting into the cable somehow),
+was to set up a camera above the display, which seemed lame and expensive.
+
+* I considered using some sort of stubs to mount the meter, e.g. the thing
+called a "setter," but mounting it inline seems simpler, more protected 
+from freezing, etc.
+
+* Note, the water meter threads used in the US are unusual; using a meter
+made for another market (e.g. Europe) would entail some quirkiness.
+
+* I considered a direct digital interface like 
+[this guy](http://jimlaurwilliams.org/wordpress/?p=3048)
+but that seemed more complicated than the magnetic interface.
+
+* I considered nylon meters, which are completely lead-free,
+but I like the strength and ground path of bronze.
