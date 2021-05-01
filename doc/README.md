@@ -21,12 +21,18 @@ I replaced the mechanical register with a magnetometer with a SPI interface.
 There are many to choose from, manufactured by AMS.  I chose the
 [AS5048](https://ams.com/documents/20143/36005/AS5048_DS000298_4-00.pdf)
 because it's available in a
-little breakout board:
+([little breakout board:](https://ams.com/documents/20143/36005/AS5048_UG000223_1-00.pdf))
 
-![image](https://ams.com/documents/20143/36005/AS5048A_IM000200_1-00.png)
+<img src="https://ams.com/documents/20143/36005/AS5048A_IM000200_1-00.png" width="100">
 
-The board is described in the
-([user guide](https://ams.com/documents/20143/36005/AS5048_UG000223_1-00.pdf))
+To mount the board to the meter, I designed 
+[an adapter](https://cad.onshape.com/documents/ed2b755e4b344f41f9b4f153/w/52855fbdfec80d94d3c574bc/e/c719515288ca89ce0e0c505f)
+suitable for 3d printing.
+
+I soldered cat-5 cable to the AMS board, and on the pi end, I used
+[a screw terminal hat.](https://www.adafruit.com/product/2711)
+
+<img src="https://cdn-shop.adafruit.com/1200x900/2711-07.jpg" width="100">
 
 ## Data storage
 
@@ -37,6 +43,9 @@ so ~35MB per year.  Both files have the same format:
 (timestamp, angle, microliters, gallons)
 
 The angle is measured in the native unit, 16384 per revolution.
+
+The files are read in their entirety for each web server request, optionally
+resampled using pandas.
 
 ## Web interface
 
@@ -84,6 +93,51 @@ frequency (~240hz), an increment will be 1/4 full scale (4096) or less, and a
 wrap will be 3/4 full scale (12288) or more.  So if we set the threshold to 1/2
 scale (8192), we'll have plenty of buffer (1/4 on each side) for the noise, which seems
 like about 2% (a few hundred).
+
+So that means sampling at about 250hz, i.e. 4ms between samples.
+
+4ms is a lot, so we just use "now" modulo the period, and sleep until the next
+sample.
+
+## Recording samples
+
+From the 250hz stream, we retain the cumulative angle measurement at 1 hz.  I
+thought about interpolating the measurement so it corresponded to round one
+second instants, but I don't think that matters at all; just take the first
+reading after the 1 sec boundary, and it will be within 0.004 sec.
+
+## Pushing code to the pi
+
+First setup the pi for ssh, and then ssh to it:
+
+```
+ssh-add ~/.ssh/id_pi_ed25519
+ssh -i .ssh/id_pi_ed25519 pi@192.168.x.x
+sudo apt update
+sudo apt upgrade
+sudo apt install git
+git clone https://github.com/truher/water.git
+```
+
+Then run the setup script
+
+```
+bash bin/setup.sh
+```
+
+TODO: i think there's something about SPI that needed setup.  is that true?
+
+Then deploying code is just
+
+```
+git pull
+```
+
+and running is
+
+```
+bash bin/run.sh
+```
 
 ## Linting
 
