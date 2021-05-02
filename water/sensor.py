@@ -94,10 +94,19 @@ class Sensor:
             res = self._make_res(res_list)
             logging.error("ignoring response %s", "{0:016b}".format(res))
 
-            res_list = self.spi.xfer2([((Sensor._NOP_REQUEST >> 8) & 0xff),
-                                      Sensor._NOP_REQUEST & 0xff])
+            #res_list = self.spi.xfer2([((Sensor._NOP_REQUEST >> 8) & 0xff),
+            #                          Sensor._NOP_REQUEST & 0xff])
+            res_list = self.spi.xfer2([((Sensor._ANGLE_READ_REQUEST >> 8) & 0xff),
+                                      Sensor._ANGLE_READ_REQUEST & 0xff])
             res = self._make_res(res_list)
-            logging.error("error register %s", "{0:016b}".format(res))
+            if res & 0b0000000000000001 != 0:
+                logging.error("error register indicates framing error %s", "{0:016b}".format(res))
+            if res & 0b0000000000000010 != 0:
+                logging.error("error register indicates command invalid %s", "{0:016b}".format(res))
+            if res & 0b0000000000000100 != 0:
+                logging.error("error register indicates parity error %s", "{0:016b}".format(res))
+            if res & 0b0000000000000111 == 0:
+                logging.error("error register indicates other error %s", "{0:016b}".format(res))
 
             raise Sensor.ResponseErrorRegisterException(f"error register {res}")
 
