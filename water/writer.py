@@ -65,7 +65,12 @@ class DataWriter:
         self.cumulative_angle = cumulative_angle
         self.cumulative_volume_ul = cumulative_volume_ul
 
-    def read(self) -> Any:
-        """Reads the entire file as a dataframe."""
+    def read(self, rows: int) -> Any:
+        """Reads the last N rows from the file as a dataframe.
+
+        Zero rows means all rows.
+        """
+        skiprows: int = 0 if rows == 0 else max(0, sum(1 for l in open(self._path())) - rows)
         return pd.read_csv(self._path(), delim_whitespace=True, index_col=0, parse_dates=True,
-                           header=None, names=['time', 'angle', 'volume_ul', 'volume_gal'])
+                           header=None, names=['time', 'angle', 'volume_ul', 'volume_gal'],
+                           skiprows=skiprows)

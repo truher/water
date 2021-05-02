@@ -28,11 +28,13 @@ const freq_label = (freq) => {
     }
 };
 
-const freq = window.location.pathname.split("/")[2];
-
+const path_components = window.location.pathname.split("/");
+const freq = path_components[2];
 const label = freq_label(freq);
 
-const url = "/data/" + freq;
+const url = (path_components.length < 4 ?
+             "/data/" + freq :
+             "/data/" + freq + "/" + path_components[3])
 const chartlabel = "Volume in gal by " + label;
 const xlabel = "Time (one " + label + " buckets)";
 

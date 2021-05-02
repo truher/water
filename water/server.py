@@ -45,21 +45,23 @@ def index() -> Any:
     return app.send_static_file('index.html')
 
 @app.route('/timeseries/<freq>')
-def timeseries(freq: str) -> Any:
-    logging.debug("timeseries %s", freq)
+@app.route('/timeseries/<freq>/<int:window>')
+def timeseries(freq: str, window: int = 0) -> Any:
+    logging.debug("timeseries %s %d", freq, window)
     return app.send_static_file('timeseries.html')
 
 @app.route('/data/<freq>')
-def data(freq: str) -> Any:
-    logging.debug('data %s', freq)
+@app.route('/data/<freq>/<int:window>')
+def data(freq: str, window: int = 0) -> Any:
+    logging.debug('data %s %d', freq, window)
     if freq == 'S':
-        return json_response(writer_sec.read())
+        return json_response(writer_sec.read(window))
     if freq == 'T':
-        return json_response(writer_min.read())
+        return json_response(writer_min.read(window))
     if freq == 'H':
-        return json_response(downsample(writer_min.read(), 'H'))
+        return json_response(downsample(writer_min.read(window), 'H'))
     if freq == 'D':
-        return json_response(downsample(writer_min.read(), 'D'))
+        return json_response(downsample(writer_min.read(window), 'D'))
     abort(404, 'Bad parameter')
 
 def main() -> None:
