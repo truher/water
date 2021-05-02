@@ -55,10 +55,10 @@ class Reader:
 
             except Sensor.ResponseLengthException as err:
                 make_extra_request = True
-                logging.error("Response Length Exception %s", err)
+                logging.debug("Response Length Exception %s", err)
             except Sensor.ResponseParityException as err:
                 make_extra_request = True
-                logging.error("Response Parity Exception %s", err)
+                logging.debug("Response Parity Exception %s", err)
             except Sensor.ResponseErrorRegisterException as err:
                 make_extra_request = True
-                logging.error("Response Error Register %s", err)
+                logging.debug("Response Error Register %s", err)
