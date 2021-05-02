@@ -31,8 +31,15 @@ class Reader:
         meter: Meter = Meter()
         volume: Volume = Volume()
 
+        # used for error recovery and startup
+        make_extra_request: bool = True
+
         while True:
             try:
+                if make_extra_request:
+                    make_extra_request = False
+                    sensor.read_angle()
+
                 Reader._wait_for_next_sample()
                 now_ns = time.time_ns()
 
@@ -47,8 +54,11 @@ class Reader:
                     writer.write(now_ns, meter.read(), volume.read())
 
             except Sensor.ResponseLengthException as err:
+                make_extra_request = True
                 logging.error("Response Length Exception %s", err)
             except Sensor.ResponseParityException as err:
+                make_extra_request = True
                 logging.error("Response Parity Exception %s", err)
             except Sensor.ResponseErrorRegisterException as err:
+                make_extra_request = True
                 logging.error("Response Error Register %s", err)
