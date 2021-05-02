@@ -5,16 +5,16 @@ from datetime import datetime
 import lib
 
 # AMS AS5048A encoder
-
+#
 # from datasheet
 # https://ams.com/documents/20143/36005/AS5048_DS000298_4-00.pdf
-
+#
 # (all even parity below)
-
+#
 # request bits: 15=parity, 14=read(1) or write(0), 13:0=address
 # read response bits: 15=parity, 14=error, 13:0=data
 # write request bits: 15=parity, 14=0, 13:0=data
-
+#
 # registers (hex):
 # 0000: NOP
 # 0001: read and clear error (0=framing, 1=invalid command, 2=parity)
@@ -24,7 +24,7 @@ import lib
 # 3FFD: diagnostics, AGC
 # 3FFE: read magnitude
 # 3FFF: read angle
-
+#
 # diagnostics
 # OCF = offset compensation finished, should be high
 # COF = cordic overflow, high is bad
@@ -39,17 +39,17 @@ class Sensor:
         """Initalizes with supplied SpiDev."""
         self.spi = spi
 
-    #                           PR<----addr---->
-    #                           5432109876543210
-    NOP_REQUEST: int        = 0b0000000000000000
-    ERR_REQUEST: int        = 0b0100000000000001
-    DIAGNOSTIC_REQUEST: int = 0b0111111111111101
-    MAGNITUDE_REQUEST: int  = 0b0111111111111110
-    ANGLE_READ_REQUEST: int = 0b1111111111111111
+    #                            PR<----addr---->
+    #                            5432109876543210
+    _NOP_REQUEST: int        = 0b0000000000000000
+    _ERR_REQUEST: int        = 0b0100000000000001
+    _DIAGNOSTIC_REQUEST: int = 0b0111111111111101
+    _MAGNITUDE_REQUEST: int  = 0b0111111111111110
+    _ANGLE_READ_REQUEST: int = 0b1111111111111111
     # read response comes in the subsequent message
 
-    RESPONSE_MASK: int      = 0b0011111111111111
-    ERR_MASK: int           = 0b0100000000000000
+    _RESPONSE_MASK: int      = 0b0011111111111111
+    _ERR_MASK: int           = 0b0100000000000000
 
     class ResponseLengthException(Exception):
         """The response is not of length two"""
@@ -66,10 +66,15 @@ class Sensor:
             raise Sensor.ResponseLengthException(f"response length {len(res_list)}")
         res: int = ((res_list[0] & 0xff) << 8) + (res_list[1] & 0xff)
         if not lib.has_even_parity(res):
+            logging.error("parity error for response %s", "{0:016b}".format(res))
             raise Sensor.ResponseParityException()
         return res
 
-    def transfer(self, req: int) -> int:
+    def read_angle(self) -> int:
+        """Reads the magnet angle."""
+        return self._transfer(Sensor._ANGLE_READ_REQUEST) & Sensor._RESPONSE_MASK
+
+    def _transfer(self, req: int) -> int:
         """Makes SPI request, read and return response, check parity."""
         reqh: int = (req >> 8) & 0xff
         reql: int = req & 0xff
@@ -80,29 +85,34 @@ class Sensor:
         res_list: List[int] = self.spi.xfer2([reqh, reql])
         res = self._make_res(res_list)
 
-        err: int = res & Sensor.ERR_MASK
+        err: int = res & Sensor._ERR_MASK
         if err:
-            logging.error("err flag set!")
+            logging.error("err flag set for response %s", "{0:016b}".format(res))
             # ignore the response, try to clear the error, ignore the response
-            self.spi.xfer2([((Sensor.ERR_REQUEST >> 8) & 0xff),
-                           Sensor.ERR_REQUEST & 0xff])
-            res_list = self.spi.xfer2([((Sensor.NOP_REQUEST >> 8) & 0xff),
-                                      Sensor.NOP_REQUEST & 0xff])
+            res_list = self.spi.xfer2([((Sensor._ERR_REQUEST >> 8) & 0xff),
+                                      Sensor._ERR_REQUEST & 0xff])
             res = self._make_res(res_list)
+            logging.error("ignoring response %s", "{0:016b}".format(res))
+
+            res_list = self.spi.xfer2([((Sensor._NOP_REQUEST >> 8) & 0xff),
+                                      Sensor._NOP_REQUEST & 0xff])
+            res = self._make_res(res_list)
+            logging.error("error register %s", "{0:016b}".format(res))
+
             raise Sensor.ResponseErrorRegisterException(f"error register {res}")
 
         return res
 
     def verbose(self) -> None:
         """Produces debugging output."""
-        self.transfer(Sensor.ANGLE_READ_REQUEST)
-        angle: int = self.transfer(Sensor.NOP_REQUEST) & Sensor.RESPONSE_MASK
+        self._transfer(Sensor._ANGLE_READ_REQUEST)
+        angle: int = self._transfer(Sensor._NOP_REQUEST) & Sensor._RESPONSE_MASK
 
-        self.transfer(Sensor.MAGNITUDE_REQUEST)
-        magnitude: int = self.transfer(Sensor.NOP_REQUEST) & Sensor.RESPONSE_MASK
+        self._transfer(Sensor._MAGNITUDE_REQUEST)
+        magnitude: int = self._transfer(Sensor._NOP_REQUEST) & Sensor._RESPONSE_MASK
 
-        self.transfer(Sensor.DIAGNOSTIC_REQUEST)
-        diagnostic: int = self.transfer(Sensor.NOP_REQUEST)
+        self._transfer(Sensor._DIAGNOSTIC_REQUEST)
+        diagnostic: int = self._transfer(Sensor._NOP_REQUEST)
         #                               5432109876543210
         comp_high: int = diagnostic & 0b0000100000000000
         comp_low: int  = diagnostic & 0b0000010000000000

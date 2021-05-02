@@ -11,8 +11,8 @@ from reader import Reader
 from writer import DataWriter
 import spi
 
-logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s %(message)s', datefmt='%Y-%m-%dT%H:%M:%S',
-                    level=logging.INFO)
+logging.basicConfig(format='%(asctime)s.%(msecs)03d %(levelname)s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S', level=logging.INFO)
 
 app = Flask(__name__)
 

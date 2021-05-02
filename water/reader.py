@@ -37,7 +37,8 @@ class Reader:
                 now_ns = time.time_ns()
 
                 # TODO: hide this spi-specific stuff
-                angle = sensor.transfer(Sensor.ANGLE_READ_REQUEST) & Sensor.RESPONSE_MASK
+                #angle = sensor.transfer(Sensor.ANGLE_READ_REQUEST) & Sensor.RESPONSE_MASK
+                angle = sensor.read_angle()
                 logging.debug("angle %s", angle)
 
                 meter.update(angle)
