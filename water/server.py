@@ -41,17 +41,17 @@ def json_response(dataframe: Any) -> Any:
 
 @app.route('/')
 def index() -> Any:
-    logging.info("index")
+    logging.debug("index")
     return app.send_static_file('index.html')
 
 @app.route('/timeseries/<freq>')
 def timeseries(freq: str) -> Any:
-    logging.info("timeseries %s", freq)
+    logging.debug("timeseries %s", freq)
     return app.send_static_file('timeseries.html')
 
 @app.route('/data/<freq>')
 def data(freq: str) -> Any:
-    logging.info('data %s', freq)
+    logging.debug('data %s', freq)
     if freq == 'S':
         return json_response(writer_sec.read())
     if freq == 'T':
