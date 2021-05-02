@@ -44,7 +44,9 @@ which is available from
 
 To mount the board to the meter, I designed 
 [an adapter](https://cad.onshape.com/documents/ed2b755e4b344f41f9b4f153/w/52855fbdfec80d94d3c574bc/e/c719515288ca89ce0e0c505f)
-suitable for 3d printing.
+suitable for 3d printing:
+
+<img src="exploded.png" width="300">
 
 The mount puts the sensor chip against the bronze surface of the meter body,
 which I covered with electrical tape.  Even so, the magnetic signal isn't
