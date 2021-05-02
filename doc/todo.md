@@ -1,13 +1,14 @@
 # Bugs and To-do's
 
+* The graphs should be time-windowed instead of accumulating for all time,
+and the data tables should be on separate pages, also windowed.
+
 * The per-second file is set up to be truncated every 7 days, but it seems like
 it's being truncated more often than that.
 
-* When the error flag is set, I am trying to consume and display the error
-code, and then resume, but I don't think that's working right; I get zero
-as the error code, and then another zero where I expect real data.  For now
-I'm just ignoring zeros, which has no ill effect since the measurement
-is cumulative, but I should make the error handling work.
+* I see occasional errors that involve parity errors followed by error flags,
+but reading the error code yields nothing.  It doesn't happen very often, so
+I think it's ok to just ignore.
 
 * There's no backup mechanism for the data.
 
