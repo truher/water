@@ -244,3 +244,37 @@ bash bin/run.sh
 
 For javascript linting, I used the demo at eslint.org.  For Python I used 
 both pylint and mypy.
+
+## Backups
+
+For backups, I scp the archival data periodically.  First, make a key
+without a passphrase:
+
+```
+$ ssh-keygen -t ed25519
+Generating public/private ed25519 key pair.
+Enter file in which to save the key (/home/joel/.ssh/id_ed25519): /home/joel/.ssh/id_scp_ed25519
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in /home/joel/.ssh/id_scp_ed25519
+Your public key has been saved in /home/joel/.ssh/id_scp_ed25519.pub
+```
+
+copy it
+
+```
+scp -i id_pi_ed25519 id_scp_ed25519.pub pi@raspberrypi.local:/home/pi/key
+```
+
+add it to authorized keys
+
+```
+cat key >> .ssh/authorized_keys 
+```
+
+and then add an hourly crontab entry:
+
+```
+% crontab -e
+0 * * * * scp -i ~/.ssh/id_scp_ed25519 pi@raspberrypi.local:water/data/data_min /home/joel/data/data_min.$(date -Idate)
+```
