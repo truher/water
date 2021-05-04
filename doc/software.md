@@ -276,5 +276,5 @@ and then add an hourly crontab entry:
 
 ```
 % crontab -e
-0 * * * * scp -i ~/.ssh/id_scp_ed25519 pi@raspberrypi.local:water/data/data_min /home/joel/data/data_min.$(date -Idate)
+0 * * * * scp -v -i ~/.ssh/id_scp_ed25519 pi@raspberrypi.local:water/data/data_min /home/joel/data/data_min.$(date -I)
 ```
