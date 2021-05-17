@@ -8,6 +8,8 @@
 
 const todate = (input) => new Date(input / 1e6);
 
+const UL_PER_GALLON = 3785411.784;
+
 const datestring = (date_str) => {
     const d = todate(date_str);
     return d.toLocaleDateString() + " " + d.toLocaleTimeString();
@@ -41,7 +43,7 @@ const xlabel = "Time (one " + label + " buckets)";
 d3.json(url).then((data) => {
     const line = fc.seriesSvgLine()
         .crossValue((d) => todate(d[0]))
-        .mainValue((d) => Number(d[3]));
+        .mainValue((d) => Number(d[2]) / UL_PER_GALLON);
 
     const chart = fc.chartCartesian(d3.scaleTime(), d3.scaleLinear())
         .xDomain(fc.extentTime()
@@ -49,7 +51,7 @@ d3.json(url).then((data) => {
             .accessors([(d) => todate(d[0])])(data))
         .yDomain(fc.extentLinear().include([0])
             .pad([0.0, 0.025])
-            .accessors([(d) => Number(d[3])])(data))
+            .accessors([(d) => Number(d[2]) / UL_PER_GALLON])(data))
         .chartLabel(chartlabel)
         .xLabel(xlabel)
         .yLabel("Volume (gal)")
@@ -73,7 +75,7 @@ d3.json(url).then((data) => {
         .enter()
         .append("tr");
     rows.selectAll("td")
-        .data((d) => [datestring(d[0]), d[1], d[2], d3.format(".3f")(d[3])])
+        .data((d) => [datestring(d[0]), d[1], d[2], d3.format(".3f")(d[2] / UL_PER_GALLON)])
         .enter()
         .append("td")
         .text((d) => d);

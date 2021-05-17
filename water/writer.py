@@ -7,8 +7,6 @@ from datetime import datetime
 from typing import Any, Deque
 import pandas as pd #type:ignore
 
-UL_PER_GALLON = 3785411.784
-
 class DataWriter:
     """Writes a line every so often."""
     def __init__(self, filename: str, write_mod_sec: int, trunc_mod_sec: int) -> None:
@@ -56,9 +54,8 @@ class DataWriter:
                     + str(int(now_ns % 1000000000)).zfill(9))
         delta_cumulative_angle = cumulative_angle - self.cumulative_angle
         delta_volume_ul = cumulative_volume_ul - self.cumulative_volume_ul
-        delta_volume_gal = delta_volume_ul / UL_PER_GALLON
 
-        output_line = (f"{dts}\t{delta_cumulative_angle}\t{delta_volume_ul}\t{delta_volume_gal}")
+        output_line = (f"{dts}\t{delta_cumulative_angle}\t{delta_volume_ul}")
         self.sink.write(output_line.encode('ascii'))
         self.sink.write(b'\n')
         self.sink.flush()
@@ -71,6 +68,7 @@ class DataWriter:
         Zero rows means all rows.
         """
         skiprows: int = 0 if rows == 0 else max(0, sum(1 for l in open(self._path())) - rows)
-        return pd.read_csv(self._path(), delim_whitespace=True, index_col=0, parse_dates=True,
-                           header=None, names=['time', 'angle', 'volume_ul', 'volume_gal'],
-                           skiprows=skiprows)
+        data_frame = pd.read_csv(self._path(), delim_whitespace=True, index_col=0, parse_dates=True,
+                                 header=None, names=['time', 'angle', 'volume_ul'],
+                                 skiprows=skiprows)
+        return data_frame
