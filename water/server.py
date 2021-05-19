@@ -50,6 +50,11 @@ def timeseries(freq: str, window: int = 0) -> Any:
     logging.debug("timeseries %s %d", freq, window)
     return app.send_static_file('timeseries.html')
 
+@app.route('/timeseries2/<start>/<end>')
+def timeseries2(start: str, end: str) -> Any:
+    logging.debug("timeseries2 %s %d", start, end)
+    return app.send_static_file('timeseries2.html')
+
 @app.route('/data/<freq>')
 @app.route('/data/<freq>/<int:window>')
 def data(freq: str, window: int = 0) -> Any:
@@ -63,6 +68,12 @@ def data(freq: str, window: int = 0) -> Any:
     if freq == 'D':
         return json_response(downsample(writer_min.read(window), 'D'))
     abort(404, 'Bad parameter')
+
+@app.route('/data2/<start>/<end>')
+def data2(start: str, end: str) -> Any:
+    logging.debug('data2 %s %s', start, end)
+    #return json_response(writer_min.read_range(start, end))
+    return json_response(writer_sec.read_range(start, end))
 
 def main() -> None:
     threading.Thread(target=data_reader).start()

@@ -4,8 +4,9 @@ import logging
 import os
 from collections import deque
 from datetime import datetime
-from typing import Any, Deque
+from typing import Any, Deque, List
 import pandas as pd #type:ignore
+from search.search import RangeSearch
 
 class DataWriter:
     """Writes a line every so often."""
@@ -68,7 +69,21 @@ class DataWriter:
         Zero rows means all rows.
         """
         skiprows: int = 0 if rows == 0 else max(0, sum(1 for l in open(self._path())) - rows)
+        logging.debug('skiprows %d', skiprows)
         data_frame = pd.read_csv(self._path(), delim_whitespace=True, index_col=0, parse_dates=True,
                                  header=None, names=['time', 'angle', 'volume_ul'],
                                  skiprows=skiprows)
+        logging.debug('data_frame rows %d', len(data_frame.index))
         return data_frame
+
+    def read_range(self, start: str, end: str) -> Any:
+        """Reads a range of rows based on the specified range"""
+        logging.debug('read_range %s %s', start, end)
+        with open(self._path()) as file:
+            with RangeSearch(file) as rng:
+                rows: List[List[str]] = rng.search(start, end)
+                logging.debug('len(rows) %d', len(rows))
+                data_frame = pd.DataFrame(rows, columns=['time','angle','volume_ul'])
+                data_frame['time'] = pd.to_datetime(data_frame['time'])
+                data_frame = data_frame.set_index('time')
+                return data_frame
