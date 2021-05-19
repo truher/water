@@ -4,7 +4,7 @@ import unittest
 import water.lib as lib
 from water.sensor import Sensor
 
-#pylint: disable=no-self-use, unused-argument, missing-function-docstring, missing-class-docstring, too-few-public-methods
+#pylint: disable=no-self-use, unused-argument, missing-function-docstring, missing-class-docstring, too-few-public-methods, protected-access
 class TestLib(unittest.TestCase):
     def test_parity(self) -> None:
         self.assertEqual(True, lib.has_even_parity(0),
@@ -22,7 +22,7 @@ class TestLib(unittest.TestCase):
                 return [0, 0]
         fsd: FakeSpiDev = FakeSpiDev()
         sensor = Sensor(fsd)
-        response = sensor.transfer(-2)
+        response = sensor._transfer(-2)
         self.assertEqual(0, response, msg='')
 
     def test_sensor_short(self) -> None:
@@ -33,7 +33,7 @@ class TestLib(unittest.TestCase):
         sensor = Sensor(fsd)
         with self.assertRaises(Sensor.ResponseLengthException,
                                msg='too-short response should raise exception'):
-            sensor.transfer(-2)
+            sensor._transfer(-2)
 
     def test_sensor_long(self) -> None:
         class TooLongSpiDev:
@@ -43,7 +43,7 @@ class TestLib(unittest.TestCase):
         sensor = Sensor(fsd)
         with self.assertRaises(Sensor.ResponseLengthException,
                                msg='too-long response should raise exception'):
-            sensor.transfer(-2)
+            sensor._transfer(-2)
 
     def test_sensor_parity(self) -> None:
         class BadParitySpiDev:
@@ -53,7 +53,7 @@ class TestLib(unittest.TestCase):
         sensor = Sensor(fsd)
         with self.assertRaises(Sensor.ResponseParityException,
                           msg='bad response parity should raise exception'):
-            sensor.transfer(-2)
+            sensor._transfer(-2)
 
 if __name__ == '__main__':
     unittest.main()
