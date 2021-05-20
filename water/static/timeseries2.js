@@ -10,76 +10,71 @@ const todate = (input) => new Date(input / 1e6);
 
 const UL_PER_GALLON = 3785411.784;
 
-const datestring = (date_str) => {
-    const d = todate(date_str);
-    return d.toLocaleDateString() + " " + d.toLocaleTimeString();
-};
+// TODO: pass screen grain to server, don't request more points than we can show
+const url = function(start, end) { return "/data2/" + start + "/" + end;}
 
-const freq_label = (freq) => {
-    switch (freq) {
-    case "S":
-        return "second";
-    case "T":
-        return "minute";
-    case "H":
-        return "hour";
-    case "D":
-        return "day";
-    default:
-        return "?";
-    }
-};
+const default_end = new Date();
+const default_start = new Date(default_end);
+default_start.setDate(default_start.getDate() - 1);
 
-// /timeseries/<start>/<end>
-const path_components = window.location.pathname.split("/");
-if (path_components.length < 4) throw new Error("path too short");
-const start = path_components[2];
-const end = path_components[3];
-//const label = freq_label(freq);
+const x = d3
+    .scaleTime()
+    .domain([default_start, default_end]);
 
-const url = "/data2/" + start + "/" + end;
-//const chartlabel = "Volume in gal by " + label;
-const chartlabel = "Volume in gal";
-//const xlabel = "Time (one " + label + " buckets)";
-const xlabel = "Time";
+const line = fc
+    .seriesSvgLine()
+    .crossValue((d) => todate(d[0]))
+    .mainValue((d) => Number(d[2]) / UL_PER_GALLON);
 
-d3.json(url).then((data) => {
-    const line = fc.seriesSvgLine()
-        .crossValue((d) => todate(d[0]))
-        .mainValue((d) => Number(d[2]) / UL_PER_GALLON);
+d3.json(url(default_start.toISOString(), default_end.toISOString())).then((data) => {
 
-    const chart = fc.chartCartesian(d3.scaleTime(), d3.scaleLinear())
-        .xDomain(fc.extentTime()
-            .pad([0.025, 0.025])
-            .accessors([(d) => todate(d[0])])(data))
-        .yDomain(fc.extentLinear().include([0])
+    const y = d3
+        .scaleLinear()
+        .domain(fc.extentLinear().include([0])
             .pad([0.0, 0.025])
             .accessors([(d) => Number(d[2]) / UL_PER_GALLON])(data))
-        .chartLabel(chartlabel)
-        .xLabel(xlabel)
+
+    function update_and_render() {
+        start = x.domain()[0].toISOString();
+        end = x.domain()[1].toISOString();
+        d3.json(url(start, end)).then((x) => {
+            data = x;
+            y.domain(fc.extentLinear().include([0])
+                .pad([0.0, 0.025])
+                .accessors([(d) => Number(d[2]) / UL_PER_GALLON])(data))
+            d3.select("#chart")
+                .datum(data)
+                .call(chart);
+        });
+    } // TODO add a setTimeout to run this periodically even without user action
+
+    const debounced_update_and_render = _.debounce(update_and_render, 500);
+
+    function render() {
+        debounced_update_and_render();
+        d3.select("#chart")
+            .datum(data)
+            .call(chart);
+    }
+
+    const zoom = fc
+        .zoom()
+        .on('zoom', render);
+
+    const chart = fc
+        .chartCartesian(x, y)
+        .chartLabel("Water flow") // TODO make this gal/hr not gal/time-bucket
+        .xLabel("Time")
         .yLabel("Volume (gal)")
         .yOrient("left")
-        .svgPlotArea(line);
-
-    d3.select("#chart")
-        .datum(data)
-        .call(chart);
-
-    const table = d3.select("#table");
-    const header = table.append("thead").append("tr");
-    header.selectAll("th")
-        .data(["Time", "Angle", "Volume (ul)", "Volume (gal)"])
-        .enter()
-        .append("th")
-        .text((d) => d);
-    const tbody = table.append("tbody");
-    const rows = tbody.selectAll("tr")
-        .data(data)
-        .enter()
-        .append("tr");
-    rows.selectAll("td")
-        .data((d) => [datestring(d[0]), d[1], d[2], d3.format(".3f")(d[2] / UL_PER_GALLON)])
-        .enter()
-        .append("td")
-        .text((d) => d);
+        .svgPlotArea(line)
+        .decorate(sel => {
+            sel.enter()
+                .selectAll('.plot-area')
+                .call(zoom, x, null);
+            sel.enter()
+                .selectAll('.x-axis')
+                .call(zoom, x, null);
+        });
+    render();
 });

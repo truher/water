@@ -50,9 +50,9 @@ def timeseries(freq: str, window: int = 0) -> Any:
     logging.debug("timeseries %s %d", freq, window)
     return app.send_static_file('timeseries.html')
 
-@app.route('/timeseries2/<start>/<end>')
-def timeseries2(start: str, end: str) -> Any:
-    logging.debug("timeseries2 %s %d", start, end)
+@app.route('/timeseries2')
+def timeseries2() -> Any:
+    logging.debug("timeseries2")
     return app.send_static_file('timeseries2.html')
 
 @app.route('/data/<freq>')
@@ -72,6 +72,8 @@ def data(freq: str, window: int = 0) -> Any:
 @app.route('/data2/<start>/<end>')
 def data2(start: str, end: str) -> Any:
     logging.debug('data2 %s %s', start, end)
+    # TODO: select sec or min depending on range and grain
+    # TODO: downsample to fit grain
     #return json_response(writer_min.read_range(start, end))
     return json_response(writer_sec.read_range(start, end))
 
