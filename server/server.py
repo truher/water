@@ -2,8 +2,9 @@
 # pylint: disable=fixme, missing-function-docstring, inconsistent-return-statements
 import json
 import logging
+import time
 from typing import Any
-from flask import abort, Flask, Response
+from flask import abort, Flask, Response, request
 from waitress import serve
 from data_reader import DataReader
 
@@ -17,7 +18,10 @@ def downsample(dataframe: Any, freq: str) -> Any:
     return dataframe.resample(freq).sum()
 
 def json_response(dataframe: Any) -> Any:
+    start_ns = time.time_ns()
     json_payload = json.dumps(dataframe.to_records().tolist())
+    end_ns = time.time_ns()
+    logging.info("json microsec %d", (end_ns - start_ns) // 1000)
     return Response(json_payload, mimetype='application/json')
 
 @app.route('/')
@@ -55,10 +59,29 @@ def data2(start: str, end: str, buckets: int) -> Any:
     logging.info('data2 %s %s %d', start, end, buckets)
     return json_response(data_reader.read_range(start, end, buckets))
 
+def start_timer():
+    request.start_time_ns = time.time_ns()
+    logging.info("start %s %s", request.method, request.path)
+
+def stop_timer(response):
+    request.latency_ns = time.time_ns() - request.start_time_ns
+    return response
+
+def record_request_data(response):
+    logging.info("response %s %s %d %d %d", request.method, request.path, response.status_code,
+        response.content_length, request.latency_ns // 1000)
+    return response
+
+def setup_metrics(flask_app):
+    flask_app.before_request(start_timer)
+    flask_app.after_request(record_request_data)
+    flask_app.after_request(stop_timer)
+
 def main() -> None:
     logging.basicConfig(
-        format='%(asctime)s.%(msecs)03d %(levelname)s [%(filename)s:%(lineno)d] %(message)s',
+        format='%(asctime)s.%(msecs)03d %(created).6f %(levelname)s [%(filename)s:%(lineno)d] %(message)s',
         datefmt='%Y-%m-%dT%H:%M:%S', level=logging.INFO)
+    setup_metrics(app)
     serve(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":

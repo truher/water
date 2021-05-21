@@ -30,7 +30,7 @@ class RangeSearch:
 
     def _scan(self, offset: int, query_high: str) -> List[List[str]]:
         """return rows from offset to query_high, inclusive"""
-        logging.debug('scan %d %s', offset, query_high)
+        logging.info('scan %d %s', offset, query_high)
         self.text_io.seek(offset)
         whole_line = self.text_io.readline()
         logging.debug('whole line %s', whole_line)
@@ -39,13 +39,16 @@ class RangeSearch:
             return []
         line = whole_line.strip().split(SEP)
         result = []
+        counter = 0
         while line[0] <= query_high:
             result.append(line)
+            counter += 1
             whole_line = self.text_io.readline()
             line = whole_line.strip().split(SEP)
             if line == ['']:  # happens only at the last line.
                 logging.debug('empty last line')
                 break
+        logging.info("row count %d", counter)
         return result
 
     def _id_from_line(self, offset: int) -> str:
@@ -75,7 +78,7 @@ class RangeSearch:
 
     def _lower_bound(self, query: str, offset_l: int, offset_h: int) -> int:
         """return offset of first row within bounds not less than query"""
-        logging.debug('lower bound %s %s %s', query, offset_l, offset_h)
+        logging.info('lower bound %s %s %s', query, offset_l, offset_h)
         if offset_l >= offset_h:
             return self._seek_back_to_line_start(offset_l)
 
