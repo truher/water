@@ -1,0 +1,5 @@
+Flask==1.1.2
+pandas==1.2.4
+waitress==2.0.0
+
+# for prod you also need spidev
