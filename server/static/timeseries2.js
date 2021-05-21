@@ -52,9 +52,9 @@ var loaded = false;
 
 const chart = fc
     .chartCartesian(x, y)
-    .chartLabel("Water flow") // TODO make this gal/hr not gal/time-bucket
+    .chartLabel("Water flow")
     .xLabel("Time")
-    .yLabel("Volume (gal)")
+    .yLabel("Flow (gallons per minute)")
     .yOrient("left")
     .svgPlotArea(line)
     .decorate(sel => {
