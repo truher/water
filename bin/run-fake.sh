@@ -1,4 +1,4 @@
 #!/usr/bin/bash
-export PYTHONPATH="${PYTHONPATH}:$PWD/water:$PWD/search"
+export PYTHONPATH="${PYTHONPATH}:$PWD/search:$PWD/server:$PWD/water"
 python3 water/reader.py --fake &
-python3 water/server.py &
+python3 server/server.py &

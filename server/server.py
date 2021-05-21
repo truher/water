@@ -1,17 +1,11 @@
 """Decodes and logs angular data from AMS AS5048A."""
 # pylint: disable=fixme, missing-function-docstring, inconsistent-return-statements
-#import argparse
 import json
 import logging
 from typing import Any
 from flask import abort, Flask, Response
 from waitress import serve
-#from writer import DataWriter
 from datastore import DataStore
-
-logging.basicConfig(
-    format='%(asctime)s.%(msecs)03d %(levelname)s [%(filename)s:%(lineno)d] %(message)s',
-    datefmt='%Y-%m-%dT%H:%M:%S', level=logging.INFO)
 
 app = Flask(__name__)
 
@@ -70,6 +64,9 @@ def data2(start: str, end: str, buckets: int) -> Any:
     return json_response(datastore.read_range(start, end, buckets))
 
 def main() -> None:
+    logging.basicConfig(
+        format='%(asctime)s.%(msecs)03d %(levelname)s [%(filename)s:%(lineno)d] %(message)s',
+        datefmt='%Y-%m-%dT%H:%M:%S', level=logging.INFO)
     serve(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":
