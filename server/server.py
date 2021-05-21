@@ -5,14 +5,14 @@ import logging
 from typing import Any
 from flask import abort, Flask, Response
 from waitress import serve
-from datastore import DataStore
+from data_reader import DataReader
 
 app = Flask(__name__)
 
 # TODO: hide the multiple-file thing from the server
 #writer_min = DataWriter("data_min", 60, 0)     # archival, keep forever
 #writer_sec = DataWriter("data_sec", 1, 604800) # temporary, keep 7 days
-datastore = DataStore("data_min", "data_sec")
+data_reader = DataReader("data_min", "data_sec")
 
 def downsample(dataframe: Any, freq: str) -> Any:
     if dataframe.empty:
@@ -44,13 +44,13 @@ def timeseries2() -> Any:
 def data(freq: str, window: int = 0) -> Any:
     logging.debug('data %s %d', freq, window)
     if freq == 'S':
-        return json_response(datastore.read_sec(window))
+        return json_response(data_reader.read_sec(window))
     if freq == 'T':
-        return json_response(datastore.read_min(window))
+        return json_response(data_reader.read_min(window))
     if freq == 'H':
-        return json_response(downsample(datastore.read_min(window), 'H'))
+        return json_response(downsample(data_reader.read_min(window), 'H'))
     if freq == 'D':
-        return json_response(downsample(datastore.read_min(window), 'D'))
+        return json_response(downsample(data_reader.read_min(window), 'D'))
     abort(404, 'Bad parameter')
 
 @app.route('/data2/<start>/<end>/<int:buckets>')
@@ -61,7 +61,7 @@ def data2(start: str, end: str, buckets: int) -> Any:
     # TODO: hide the multiple-file thing from the server
     #return json_response(writer_min.read_range(start, end))
     #return json_response(writer_sec.read_range(start, end, buckets))
-    return json_response(datastore.read_range(start, end, buckets))
+    return json_response(data_reader.read_range(start, end, buckets))
 
 def main() -> None:
     logging.basicConfig(

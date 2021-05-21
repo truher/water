@@ -5,7 +5,7 @@ from typing import Any, List
 import pandas as pd #type:ignore
 from search.search import RangeSearch
 
-class DataStore:
+class DataReader:
     """Read from one of the data files, depending on bucket size."""
     def __init__(self, minfile: str, secfile: str) -> None:
         self.minfile = minfile
@@ -30,7 +30,7 @@ class DataStore:
         logging.info("delta_s: %d freq_s: %d", delta_s, freq_s)
         if freq_s > 60:
             logging.debug("should use minute data here")
-        with open(DataStore._path(self.secfile)) as file:
+        with open(DataReader._path(self.secfile)) as file:
             with RangeSearch(file) as rng:
                 rows: List[List[str]] = rng.search(start, end)
                 logging.debug('len(rows) %d', len(rows))
@@ -67,8 +67,8 @@ class DataStore:
 
     # TODO: remove this
     def read_min(self, rows: int) -> Any:
-        return DataStore._read(DataStore._path(self.minfile), rows)
+        return DataReader._read(DataReader._path(self.minfile), rows)
 
     # TODO: remove this
     def read_sec(self, rows: int) -> Any:
-        return DataStore._read(DataStore._path(self.secfile), rows)
+        return DataReader._read(DataReader._path(self.secfile), rows)
