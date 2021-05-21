@@ -36,8 +36,8 @@ const line = fc
 var data = [];
 
 function render() {
-    console.log("render()");
-    console.log("data.length " + data.length);
+    //console.log("render()");
+    //console.log("data.length " + data.length);
     y.domain(fc.extentLinear().include([0])
         .pad([0.0, 0.025])
         .accessors([(d) => Number(d[2]) / UL_PER_GALLON])(data));
@@ -69,8 +69,8 @@ const chart = fc
             .call(zoom, x, null);
         //sel.enter().on('draw.foo', (e, d) => {
         sel.enter().on('draw.foo', () => {
-            console.log("on draw");
-            console.log("x range " + x.range());
+            //console.log("on draw");
+            //console.log("x range " + x.range());
 	    if (!loaded) {
                 loaded = true;
                 update_and_render();
@@ -80,19 +80,19 @@ const chart = fc
 
 
 function update_and_render() {
-    console.log("update_and_render()");
-    console.log("range px = " + x.range()[1]);
+    //console.log("update_and_render()");
+    //console.log("range px = " + x.range()[1]);
     start_dt = x.domain()[0];
     end_dt = x.domain()[1];
     range_buckets = Math.floor(x.range()[1]/PX_PER_BUCKET);
-    console.log("range buckets = " + range_buckets);
+    //console.log("range buckets = " + range_buckets);
     d3.json(url(start_dt.toISOString(), end_dt.toISOString(), range_buckets)).then((new_data) => {
-        console.log("fetch");
+        //console.log("fetch");
         data = new_data;
         y.domain(fc.extentLinear().include([0])
             .pad([0.0, 0.025])
             .accessors([(d) => Number(d[2]) / UL_PER_GALLON])(data));
-        console.log("data.length = " + data.length);
+        //console.log("data.length = " + data.length);
         d3.select("#chart")
             .datum(data)
             .call(chart);
