@@ -1,32 +1,27 @@
 """Writes and reads data files."""
 # pylint: disable=too-few-public-methods
 import logging
-import os
 from collections import deque
 from datetime import datetime
 from typing import Deque
 
 class DataWriter:
     """Writes a line every so often."""
-    def __init__(self, filename: str, write_mod_sec: int, trunc_mod_sec: int) -> None:
-        self.filename = filename
+    def __init__(self, path: str, write_mod_sec: int, trunc_mod_sec: int) -> None:
+        self.path = path
         self.write_mod_sec = write_mod_sec
         self.trunc_mod_sec = trunc_mod_sec
-        os.makedirs('data', exist_ok=True)
-        self.sink = open(self._path(), 'ab')
+        self.sink = open(self.path, 'ab')
         self.cumulative_angle = 0
         self.cumulative_volume_ul = 0
         self.current_second: int = 0
-
-    def _path(self) -> str:
-        return 'data/' + self.filename
 
     def _trim(self, now_s: int) -> None:
         if self.trunc_mod_sec != 0 and now_s % self.trunc_mod_sec == 0:
             logging.debug("trim: %s %s %s", self.trunc_mod_sec, now_s, now_s % self.trunc_mod_sec)
             self.sink.close()
-            whole_file: Deque[bytes] = deque(open(self._path(), 'rb'), maxlen=self.trunc_mod_sec)
-            self.sink = open(self._path(), 'wb')
+            whole_file: Deque[bytes] = deque(open(self.path, 'rb'), maxlen=self.trunc_mod_sec)
+            self.sink = open(self.path, 'wb')
             self.sink.writelines(whole_file)
             self.sink.flush()
 

@@ -2,8 +2,9 @@
 # pylint: disable=import-error, import-outside-toplevel, fixme, missing-function-docstring
 
 import argparse
-import time
 import logging
+import os
+import time
 from typing import Any, List
 from meter import Meter
 from sensor import Sensor
@@ -78,8 +79,9 @@ def main() -> None:
         format='%(asctime)s.%(msecs)03d %(levelname)s [%(filename)s:%(lineno)d] %(message)s',
         datefmt='%Y-%m-%dT%H:%M:%S', level=logging.INFO)
 
-    writer_min = DataWriter("data_min", 60, 0)     # archival, keep forever
-    writer_sec = DataWriter("data_sec", 1, 604800) # temporary, keep 7 days
+    os.makedirs('data', exist_ok=True)
+    writer_min = DataWriter("data/data_min", 60, 0)     # archival, keep forever
+    writer_sec = DataWriter("data/data_sec", 1, 604800) # temporary, keep 7 days
     Reader(spi.make_and_setup_spi(parse()), [writer_sec, writer_min]).run()
 
 if __name__ == "__main__":

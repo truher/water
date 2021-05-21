@@ -9,10 +9,7 @@ from data_reader import DataReader
 
 app = Flask(__name__)
 
-# TODO: hide the multiple-file thing from the server
-#writer_min = DataWriter("data_min", 60, 0)     # archival, keep forever
-#writer_sec = DataWriter("data_sec", 1, 604800) # temporary, keep 7 days
-data_reader = DataReader("data_min", "data_sec")
+data_reader = DataReader()
 
 def downsample(dataframe: Any, freq: str) -> Any:
     if dataframe.empty:
@@ -56,11 +53,6 @@ def data(freq: str, window: int = 0) -> Any:
 @app.route('/data2/<start>/<end>/<int:buckets>')
 def data2(start: str, end: str, buckets: int) -> Any:
     logging.info('data2 %s %s %d', start, end, buckets)
-    # TODO: select sec or min depending on range and grain
-    # TODO: downsample to fit grain
-    # TODO: hide the multiple-file thing from the server
-    #return json_response(writer_min.read_range(start, end))
-    #return json_response(writer_sec.read_range(start, end, buckets))
     return json_response(data_reader.read_range(start, end, buckets))
 
 def main() -> None:

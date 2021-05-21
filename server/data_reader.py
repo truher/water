@@ -7,14 +7,9 @@ from search.search import RangeSearch
 
 class DataReader:
     """Read from one of the data files, depending on bucket size."""
-    def __init__(self, minfile: str, secfile: str) -> None:
-        self.minfile = minfile
-        self.secfile = secfile
 
-    # TODO: remove this
-    @staticmethod
-    def _path(filename) -> str:
-        return 'data/' + filename
+    PATH_MIN = "data/data_min"
+    PATH_SEC = "data/data_sec"
 
     def read_range(self, start: str, end: str, buckets: int) -> Any:
         """Reads a range of rows based on the specified range"""
@@ -29,8 +24,9 @@ class DataReader:
         resample_freq = str(int(freq_s)) + "S"
         logging.info("delta_s: %d freq_s: %d", delta_s, freq_s)
         if freq_s > 60:
+            # TODO: select sec or min depending on range and grain
             logging.debug("should use minute data here")
-        with open(DataReader._path(self.secfile)) as file:
+        with open(self.PATH_SEC) as file:
             with RangeSearch(file) as rng:
                 rows: List[List[str]] = rng.search(start, end)
                 logging.debug('len(rows) %d', len(rows))
@@ -46,6 +42,7 @@ class DataReader:
                 # divide by the bucket width, freq_s to maintain units per second.
                 # TODO: make this units per minute instead
                 # TODO: there's some weird aliasing here.
+
                 data_frame = data_frame.resample(resample_freq).sum() / freq_s
                 #logging.info(data_frame)
                 return data_frame
@@ -67,8 +64,8 @@ class DataReader:
 
     # TODO: remove this
     def read_min(self, rows: int) -> Any:
-        return DataReader._read(DataReader._path(self.minfile), rows)
+        return DataReader._read(self.PATH_MIN, rows)
 
     # TODO: remove this
     def read_sec(self, rows: int) -> Any:
-        return DataReader._read(DataReader._path(self.secfile), rows)
+        return DataReader._read(self.PATH_SEC, rows)
