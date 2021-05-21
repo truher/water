@@ -17,6 +17,7 @@ logging.basicConfig(
 
 app = Flask(__name__)
 
+# TODO: hide the multiple-file thing from the server
 writer_min = DataWriter("data_min", 60, 0)     # archival, keep forever
 writer_sec = DataWriter("data_sec", 1, 604800) # temporary, keep 7 days
 
@@ -69,13 +70,14 @@ def data(freq: str, window: int = 0) -> Any:
         return json_response(downsample(writer_min.read(window), 'D'))
     abort(404, 'Bad parameter')
 
-@app.route('/data2/<start>/<end>')
-def data2(start: str, end: str) -> Any:
-    logging.debug('data2 %s %s', start, end)
+@app.route('/data2/<start>/<end>/<int:buckets>')
+def data2(start: str, end: str, buckets: int) -> Any:
+    logging.info('data2 %s %s %d', start, end, buckets)
     # TODO: select sec or min depending on range and grain
     # TODO: downsample to fit grain
+    # TODO: hide the multiple-file thing from the server
     #return json_response(writer_min.read_range(start, end))
-    return json_response(writer_sec.read_range(start, end))
+    return json_response(writer_sec.read_range(start, end, buckets))
 
 def main() -> None:
     threading.Thread(target=data_reader).start()

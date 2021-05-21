@@ -76,9 +76,15 @@ class DataWriter:
         logging.debug('data_frame rows %d', len(data_frame.index))
         return data_frame
 
-    def read_range(self, start: str, end: str) -> Any:
+    def read_range(self, start: str, end: str, buckets: int) -> Any:
         """Reads a range of rows based on the specified range"""
-        logging.debug('read_range %s %s', start, end)
+        logging.info('read_range %s %s %d', start, end, buckets)
+        start_ts = pd.to_datetime(start)
+        end_ts = pd.to_datetime(end)
+        if start_ts > end_ts:
+            return pd.DataFrame()
+        delta = end_ts - start_ts
+        delta_s = delta.total_seconds()
         with open(self._path()) as file:
             with RangeSearch(file) as rng:
                 rows: List[List[str]] = rng.search(start, end)
