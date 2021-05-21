@@ -78,7 +78,7 @@ class DataWriter:
 
     def read_range(self, start: str, end: str, buckets: int) -> Any:
         """Reads a range of rows based on the specified range"""
-        logging.debug('read_range start: %s end: %s buckets: %d', start, end, buckets)
+        logging.info('read_range start: %s end: %s buckets: %d', start, end, buckets)
         start_ts = pd.to_datetime(start)
         end_ts = pd.to_datetime(end)
         if start_ts > end_ts:
@@ -87,7 +87,7 @@ class DataWriter:
         delta_s = delta.total_seconds()
         freq_s = max(delta_s // buckets, 1) # prohibit upsampling
         resample_freq = str(int(freq_s)) + "S"
-        logging.debug("delta_s: %d freq_s: %d", delta_s, freq_s)
+        logging.info("delta_s: %d freq_s: %d", delta_s, freq_s)
         if freq_s > 60:
             logging.debug("should use minute data here")
         with open(self._path()) as file:
