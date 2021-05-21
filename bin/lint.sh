@@ -1,3 +1,3 @@
 #!/usr/bin/bash
-mypy --ignore-missing-imports water search
-pylint water search
+mypy --ignore-missing-imports search server water
+pylint search server water
