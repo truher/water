@@ -4,8 +4,7 @@ import logging
 import os
 from collections import deque
 from datetime import datetime
-from typing import Any, Deque
-import pandas as pd #type:ignore
+from typing import Deque
 
 class DataWriter:
     """Writes a line every so often."""

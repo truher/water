@@ -6,7 +6,7 @@ import logging
 from typing import Any
 from flask import abort, Flask, Response
 from waitress import serve
-from writer import DataWriter
+#from writer import DataWriter
 from datastore import DataStore
 
 logging.basicConfig(
@@ -16,8 +16,8 @@ logging.basicConfig(
 app = Flask(__name__)
 
 # TODO: hide the multiple-file thing from the server
-writer_min = DataWriter("data_min", 60, 0)     # archival, keep forever
-writer_sec = DataWriter("data_sec", 1, 604800) # temporary, keep 7 days
+#writer_min = DataWriter("data_min", 60, 0)     # archival, keep forever
+#writer_sec = DataWriter("data_sec", 1, 604800) # temporary, keep 7 days
 datastore = DataStore("data_min", "data_sec")
 
 def downsample(dataframe: Any, freq: str) -> Any:

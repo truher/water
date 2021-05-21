@@ -51,7 +51,8 @@ class DataStore:
                 return data_frame
 
     # TODO: remove this
-    def _read(self, path: str, rows: int) -> Any:
+    @staticmethod
+    def _read(path: str, rows: int) -> Any:
         """Reads the last N rows from the file as a dataframe.
 
         Zero rows means all rows.
@@ -66,8 +67,8 @@ class DataStore:
 
     # TODO: remove this
     def read_min(self, rows: int) -> Any:
-        return self._read(DataStore._path(self.minfile), rows)
+        return DataStore._read(DataStore._path(self.minfile), rows)
 
     # TODO: remove this
     def read_sec(self, rows: int) -> Any:
-        return self._read(DataStore._path(self.secfile), rows)
+        return DataStore._read(DataStore._path(self.secfile), rows)

@@ -66,9 +66,6 @@ class Reader:
                 make_extra_request = True
                 logging.debug("Response Error Register %s", err)
 
-def data_reader() -> None:
-    Reader(spi.make_and_setup_spi(parse()), [writer_sec, writer_min]).run()
-
 def parse() -> argparse.Namespace:
     parser: argparse.ArgumentParser = argparse.ArgumentParser()
     parser.add_argument("--fake", action="store_true", help="use fake spidev, for testing")
@@ -77,7 +74,13 @@ def parse() -> argparse.Namespace:
     return args
 
 def main() -> None:
-    data_reader()
+    logging.basicConfig(
+        format='%(asctime)s.%(msecs)03d %(levelname)s [%(filename)s:%(lineno)d] %(message)s',
+        datefmt='%Y-%m-%dT%H:%M:%S', level=logging.INFO)
+
+    writer_min = DataWriter("data_min", 60, 0)     # archival, keep forever
+    writer_sec = DataWriter("data_sec", 1, 604800) # temporary, keep 7 days
+    Reader(spi.make_and_setup_spi(parse()), [writer_sec, writer_min]).run()
 
 if __name__ == "__main__":
     main()

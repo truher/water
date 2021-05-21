@@ -1,5 +1,5 @@
 """Decodes and logs angular data from AMS AS5048A."""
-# pylint: disable=import-error, import-outside-toplevel
+# pylint: disable=import-error, import-outside-toplevel, fixme
 import argparse
 import logging
 from typing import Any
