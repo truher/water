@@ -9,6 +9,7 @@ from flask import abort, Flask, Response
 from waitress import serve
 from reader import Reader
 from writer import DataWriter
+from datastore import DataStore
 import spi
 
 logging.basicConfig(
@@ -20,6 +21,7 @@ app = Flask(__name__)
 # TODO: hide the multiple-file thing from the server
 writer_min = DataWriter("data_min", 60, 0)     # archival, keep forever
 writer_sec = DataWriter("data_sec", 1, 604800) # temporary, keep 7 days
+datastore = DataStore("data_min", "data_sec")
 
 def parse() -> argparse.Namespace:
     parser: argparse.ArgumentParser = argparse.ArgumentParser()
@@ -77,7 +79,8 @@ def data2(start: str, end: str, buckets: int) -> Any:
     # TODO: downsample to fit grain
     # TODO: hide the multiple-file thing from the server
     #return json_response(writer_min.read_range(start, end))
-    return json_response(writer_sec.read_range(start, end, buckets))
+    #return json_response(writer_sec.read_range(start, end, buckets))
+    return json_response(datastore.read_range(start, end, buckets))
 
 def main() -> None:
     threading.Thread(target=data_reader).start()
