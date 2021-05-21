@@ -4,12 +4,14 @@ import argparse
 import logging
 from typing import Any
 
+# TODO make args primitives
 def make_and_setup_spi(args: argparse.Namespace) -> Any:
     """Makes and sets up the SPI"""
     spi: Any = make_spi(args)
     setup_spi(spi)
     return spi
 
+# TODO make args primitives
 def make_spi(args: argparse.Namespace) -> Any:
     """Makes the specified kind of SPI."""
     if args.fake:

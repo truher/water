@@ -1,5 +1,5 @@
 """Reads data from files."""
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods, fixme, missing-function-docstring
 import logging
 from typing import Any, List
 import pandas as pd #type:ignore
@@ -11,6 +11,7 @@ class DataStore:
         self.minfile = minfile
         self.secfile = secfile
 
+    # TODO: remove this
     @staticmethod
     def _path(filename) -> str:
         return 'data/' + filename
@@ -48,3 +49,25 @@ class DataStore:
                 data_frame = data_frame.resample(resample_freq).sum() / freq_s
                 #logging.info(data_frame)
                 return data_frame
+
+    # TODO: remove this
+    def _read(self, path: str, rows: int) -> Any:
+        """Reads the last N rows from the file as a dataframe.
+
+        Zero rows means all rows.
+        """
+        skiprows: int = 0 if rows == 0 else max(0, sum(1 for l in open(path)) - rows)
+        logging.debug('skiprows %d', skiprows)
+        data_frame = pd.read_csv(path, delim_whitespace=True, index_col=0, parse_dates=True,
+                                 header=None, names=['time', 'angle', 'volume_ul'],
+                                 skiprows=skiprows)
+        logging.debug('data_frame rows %d', len(data_frame.index))
+        return data_frame
+
+    # TODO: remove this
+    def read_min(self, rows: int) -> Any:
+        return self._read(DataStore._path(self.minfile), rows)
+
+    # TODO: remove this
+    def read_sec(self, rows: int) -> Any:
+        return self._read(DataStore._path(self.secfile), rows)

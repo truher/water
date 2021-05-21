@@ -1,5 +1,7 @@
 """Decodes and logs angular data from AMS AS5048A."""
-# pylint: disable=import-error, import-outside-toplevel, fixme
+# pylint: disable=import-error, import-outside-toplevel, fixme, missing-function-docstring
+
+import argparse
 import time
 import logging
 from typing import Any, List
@@ -7,6 +9,7 @@ from meter import Meter
 from sensor import Sensor
 from volume import Volume
 from writer import DataWriter
+import spi
 
 # pylint: disable=too-few-public-methods
 class Reader:
@@ -62,3 +65,19 @@ class Reader:
             except Sensor.ResponseErrorRegisterException as err:
                 make_extra_request = True
                 logging.debug("Response Error Register %s", err)
+
+def data_reader() -> None:
+    Reader(spi.make_and_setup_spi(parse()), [writer_sec, writer_min]).run()
+
+def parse() -> argparse.Namespace:
+    parser: argparse.ArgumentParser = argparse.ArgumentParser()
+    parser.add_argument("--fake", action="store_true", help="use fake spidev, for testing")
+    parser.add_argument("--verbose", action="store_true", help="read everything, not just angle")
+    args: argparse.Namespace = parser.parse_args()
+    return args
+
+def main() -> None:
+    data_reader()
+
+if __name__ == "__main__":
+    main()

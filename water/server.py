@@ -1,16 +1,13 @@
 """Decodes and logs angular data from AMS AS5048A."""
 # pylint: disable=fixme, missing-function-docstring, inconsistent-return-statements
-import argparse
+#import argparse
 import json
 import logging
-import threading
 from typing import Any
 from flask import abort, Flask, Response
 from waitress import serve
-from reader import Reader
 from writer import DataWriter
 from datastore import DataStore
-import spi
 
 logging.basicConfig(
     format='%(asctime)s.%(msecs)03d %(levelname)s [%(filename)s:%(lineno)d] %(message)s',
@@ -22,16 +19,6 @@ app = Flask(__name__)
 writer_min = DataWriter("data_min", 60, 0)     # archival, keep forever
 writer_sec = DataWriter("data_sec", 1, 604800) # temporary, keep 7 days
 datastore = DataStore("data_min", "data_sec")
-
-def parse() -> argparse.Namespace:
-    parser: argparse.ArgumentParser = argparse.ArgumentParser()
-    parser.add_argument("--fake", action="store_true", help="use fake spidev, for testing")
-    parser.add_argument("--verbose", action="store_true", help="read everything, not just angle")
-    args: argparse.Namespace = parser.parse_args()
-    return args
-
-def data_reader() -> None:
-    Reader(spi.make_and_setup_spi(parse()), [writer_sec, writer_min]).run()
 
 def downsample(dataframe: Any, freq: str) -> Any:
     if dataframe.empty:
@@ -63,13 +50,13 @@ def timeseries2() -> Any:
 def data(freq: str, window: int = 0) -> Any:
     logging.debug('data %s %d', freq, window)
     if freq == 'S':
-        return json_response(writer_sec.read(window))
+        return json_response(datastore.read_sec(window))
     if freq == 'T':
-        return json_response(writer_min.read(window))
+        return json_response(datastore.read_min(window))
     if freq == 'H':
-        return json_response(downsample(writer_min.read(window), 'H'))
+        return json_response(downsample(datastore.read_min(window), 'H'))
     if freq == 'D':
-        return json_response(downsample(writer_min.read(window), 'D'))
+        return json_response(downsample(datastore.read_min(window), 'D'))
     abort(404, 'Bad parameter')
 
 @app.route('/data2/<start>/<end>/<int:buckets>')
@@ -83,7 +70,6 @@ def data2(start: str, end: str, buckets: int) -> Any:
     return json_response(datastore.read_range(start, end, buckets))
 
 def main() -> None:
-    threading.Thread(target=data_reader).start()
     serve(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":
