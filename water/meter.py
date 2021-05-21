@@ -17,7 +17,7 @@ class Meter:
         """
         if angle == 0:
             # TODO: zero is not *always* an error.  fix this.
-            logging.error("skipping zero result")
+            logging.debug("skipping zero result")
             return
         if self.angle == 0:
             self.angle = angle
