@@ -56,7 +56,7 @@ class DataReader:
     def read_range(self, start: str, end: str, buckets: int) -> Any:
         """Reads a range of rows based on the specified range"""
         logging.info('read_range start: %s end: %s buckets: %d', start, end, buckets)
-        if start > end:
+        if start > end or buckets <= 0:
             return pd.DataFrame()
 
         (path, rows_per_bucket, rows_per_minute, resample_freq) = self._source(start, end, buckets)
