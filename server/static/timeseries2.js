@@ -20,11 +20,11 @@ const default_end = new Date();
 const default_start = new Date(default_end);
 default_start.setDate(default_start.getDate() - 1); // one day duration
 
-const x = d3
+const x_scale = d3
     .scaleTime()
     .domain([default_start, default_end]);
 
-const y = d3
+const y_scale = d3
     .scaleLinear();
 
 const line = fc
@@ -32,15 +32,22 @@ const line = fc
     .crossValue((d) => todate(d[0]))
     .mainValue((d) => Number(d[2]) / UL_PER_GALLON);
 
+const gridlines = fc
+    .annotationSvgGridline();
+
+const multi = fc
+    .seriesSvgMulti()
+    .series([gridlines, line]);
+
 var data = [];
 
 function render() {
-    y.domain(fc.extentLinear().include([0])
+    y_scale.domain(fc.extentLinear().include([0])
         .pad([0.0, 0.025])
         .accessors([(d) => Number(d[2]) / UL_PER_GALLON])(data));
     d3.select("#chart")
         .datum(data)
-        .call(chart);
+        .call(chart)
     debounced_update_and_render();
 }
 
@@ -51,19 +58,18 @@ const zoom = fc
 var loaded = false;
 
 const chart = fc
-    .chartCartesian(x, y)
-    .chartLabel("Water flow")
-    .xLabel("Time")
-    .yLabel("Flow (gallons per minute)")
+    .chartCartesian(x_scale, y_scale)
+    .yLabel("Gallons per minute")
     .yOrient("left")
-    .svgPlotArea(line)
+    .xTicks(15)
+    .svgPlotArea(multi)
     .decorate(sel => {
         sel.enter()
             .selectAll('.plot-area')
-            .call(zoom, x, null);
+            .call(zoom, x_scale, null);
         sel.enter()
             .selectAll('.x-axis')
-            .call(zoom, x, null);
+            .call(zoom, x_scale, null);
         sel.enter().on('draw.foo', () => {
 	    if (!loaded) {
                 loaded = true;
@@ -74,12 +80,12 @@ const chart = fc
 
 
 function update_and_render() {
-    start_dt = x.domain()[0];
-    end_dt = x.domain()[1];
-    range_buckets = Math.floor(x.range()[1]/PX_PER_BUCKET);
+    start_dt = x_scale.domain()[0];
+    end_dt = x_scale.domain()[1];
+    range_buckets = Math.floor(x_scale.range()[1]/PX_PER_BUCKET);
     d3.json(url(start_dt.toISOString(), end_dt.toISOString(), range_buckets)).then((new_data) => {
         data = new_data;
-        y.domain(fc.extentLinear().include([0])
+        y_scale.domain(fc.extentLinear().include([0])
             .pad([0.0, 0.025])
             .accessors([(d) => Number(d[2]) / UL_PER_GALLON])(data));
         d3.select("#chart")
