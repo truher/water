@@ -14,19 +14,34 @@ class DataReader:
     COLUMNS = ['time','angle','volume_ul']
 
     @staticmethod
-    def _freq_s(start: str, end: str, buckets: int) -> int:
+    def _duration_s(start: str, end: str) -> int:
         start_ts = pd.to_datetime(start)
         end_ts = pd.to_datetime(end)
         delta = end_ts - start_ts
-        delta_s = delta.total_seconds()
-        freq_s = max(delta_s // buckets, 1) # prohibit upsampling
-        logging.info("delta_s: %d freq_s: %d", delta_s, freq_s)
-        return freq_s
+        return delta.total_seconds()
 
-    def _source(self, freq_s: int) -> Tuple[str, str]:
-        if freq_s < 60:
-            return self.PATH_SEC, str(int(freq_s)) + "S"
-        return self.PATH_MIN, str(int(freq_s//60)) + "T"
+    def _source(self, start: str, end: str, buckets: int) -> Tuple[str, int, int, str]:
+        """returns:
+
+            the input file to use
+            the input rows per output bucket (to scale the rate from the sum)
+            the input rows per minute (for GPM scaling)
+            the resampling frequency string
+        """
+
+        duration_s = DataReader._duration_s(start, end)
+        bucket_width_s = duration_s / buckets
+        if bucket_width_s < 1:
+            # bucket is finer than the finest available file, just use what's available
+            return self.PATH_SEC, 1, 60, "1S"
+
+        if bucket_width_s < 60:
+            actual_bucket_width_s = int(bucket_width_s)
+            return self.PATH_SEC, actual_bucket_width_s, 60, str(actual_bucket_width_s) + "S"
+
+        # bucket is at least minute grain, so use that
+        bucket_width_min = int(bucket_width_s / 60)
+        return self.PATH_MIN, bucket_width_min, 1, str(bucket_width_min) + "T"
 
     def _data_frame(self, rows: List[List[str]]) -> Any:
         if len(rows) == 0:
@@ -44,10 +59,8 @@ class DataReader:
         if start > end:
             return pd.DataFrame()
 
-        freq_s = DataReader._freq_s(start, end, buckets)
-
-        (path, resample_freq) = self._source(freq_s)
-        logging.info("path: %s resample_freq: %s", path, resample_freq)
+        (path, rows_per_bucket, rows_per_minute, resample_freq) = self._source(start, end, buckets)
+        logging.info("path: %s rows_per_bucket: %d resample_freq: %s", path, rows_per_bucket, resample_freq)
 
         start_ns = time.time_ns()
         with open(path) as file:
@@ -65,8 +78,7 @@ class DataReader:
                 mid3_ns = time.time_ns()
                 logging.info("dataframe microsec %d", (mid3_ns - mid2_ns) // 1000)
 
-                # divide by the bucket width, freq_s * 60 to maintain units per minute
-                data_frame = data_frame.resample(resample_freq).sum() / (60 * freq_s)
+                data_frame = rows_per_minute * data_frame.resample(resample_freq).sum() / rows_per_bucket
 
                 end_ns = time.time_ns()
                 logging.info("resample microsec %d", (end_ns - mid3_ns) // 1000)
