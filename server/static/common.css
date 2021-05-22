@@ -15,8 +15,9 @@ text {
   height: 400px;
 }
 
-.line {
+.line, .area {
   stroke: blue;
+  fill: blue;
 }
 
 table,td {

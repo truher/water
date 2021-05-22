@@ -28,7 +28,7 @@ const y_scale = d3
     .scaleLinear();
 
 const line = fc
-    .seriesSvgLine()
+    .seriesSvgArea()
     .crossValue((d) => todate(d[0]))
     .mainValue((d) => Number(d[2]) / UL_PER_GALLON);
 
