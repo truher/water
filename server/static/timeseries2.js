@@ -61,7 +61,7 @@ const chart = fc
     .chartCartesian(x_scale, y_scale)
     .yLabel("Gallons per minute")
     .yOrient("left")
-    .xTicks(15)
+    .xTicks(5)
     .svgPlotArea(multi)
     .decorate(sel => {
         sel.enter()
