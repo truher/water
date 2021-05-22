@@ -1,5 +1,13 @@
+body {
+  font-family: Sans-Serif;
+  font-size: 24px
+}
 .x-axis {
   height: 1.5em;
+}
+
+text {
+  font-size: 20px
 }
 
 .plot-area {
@@ -9,10 +17,6 @@
 
 .line {
   stroke: blue;
-}
-
-.top-label {
-  margin-bottom: 0;
 }
 
 table,td {
