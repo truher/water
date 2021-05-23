@@ -25,8 +25,8 @@ class RangeSearch:
         if query_high < query_low:
             logging.debug('high must be higher than low')
             return []
-        offset = self._lower_bound(query=query_low, offset_l=0, offset_h=self.length)
-        return self._scan(offset, query_high)
+        lower_bound = self._lower_bound(query=query_low, offset_l=0, offset_h=self.length)
+        return self._scan(lower_bound, query_high)
 
     def _scan(self, offset: int, query_high: str) -> List[List[str]]:
         """return rows from offset to query_high, inclusive"""
