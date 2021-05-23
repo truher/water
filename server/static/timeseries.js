@@ -51,7 +51,6 @@ const xlabel = "Time (one " + label + " buckets)";
 
 d3.json(url).then((data) => {
     const line = fc.seriesSvgBar()
-        .bandwidth(10)
         .crossValue((d) => todate(d[0]))
         .mainValue((d) => Number(d[2]) / UL_PER_GALLON);
 
