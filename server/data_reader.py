@@ -85,6 +85,8 @@ class DataReader:
 
                     mid3_ns = time.time_ns()
                     logging.info("dataframe microsec %d", (mid3_ns - mid2_ns) // 1000)
+                    if len(data_frame.index) == 0:
+                        return data_frame
 
                     data_frame = rows_per_minute * data_frame.resample(resample_freq).sum() / rows_per_bucket
 
