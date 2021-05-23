@@ -114,6 +114,10 @@ goes wrong, for example
 or I could just make one out of PVC NPT fittings, which will probably
 work well enough to seal against the soft rubber gasket.
 
+I carefully cut the pipe, sweated on some fittings, and installed the meter:
+
+<img src="meter.jpg" width="300">
+
 ## Wiring
 
 SPI isn't really 
@@ -133,3 +137,7 @@ the clk and data lines are paired with vcc or gnd.
 | MOSI | White/Green  | P19 (upper center)       |
 | MISO | White/Orange | P21 (upper center)       |
 | GND  | White/Blue   | GND (center bottom)      |
+
+Here's the RPi screwed to the ceiling of the garage:
+
+<img src="raspberry_pi.jpg" width="300">
