@@ -15,7 +15,7 @@ text {
   height: 400px;
 }
 
-.line, .area {
+.line, .area, .bar {
   stroke: blue;
   fill: blue;
 }
