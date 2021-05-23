@@ -1,3 +1,4 @@
+<img src="doc/screenshot.png">
 # Joel's water meter project
 
 The idea is to measure the water usage of our house, at a pretty fine grain,
