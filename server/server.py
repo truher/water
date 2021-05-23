@@ -52,6 +52,8 @@ def data(freq: str, window: int = 0) -> Any:
         return json_response(downsample(data_reader.read_min(window), 'H'))
     if freq == 'D':
         return json_response(downsample(data_reader.read_min(window), 'D'))
+    if freq == 'M':
+        return json_response(downsample(data_reader.read_min(window), 'M'))
     abort(404, 'Bad parameter')
 
 @app.route('/data2/<start>/<end>/<int:buckets>')
