@@ -28,6 +28,19 @@ class RangeSearch:
         lower_bound = self._lower_bound(query=query_low, offset_l=0, offset_h=self.length)
         return self._scan(lower_bound, query_high)
 
+    def search3(self, query_low, query_high):
+        lower_bound = self._lower_bound(query=query_low, offset_l=0, offset_h=self.length)
+        upper_bound = self._upper_bound(query=query_high, offset_l=lower_bound, offset_h=self.length)
+        return (lower_bound, upper_bound)
+
+    def _scan_offset(self, lower, upper):
+        logging.debug('scan offset %d %d', lower, upper)
+        self.text_io.seek(lower)
+        result = []
+        for l in self.text_io.readlines(upper-lower-1):
+            result.append(l.strip().split(SEP))
+        return result
+
     def _scan(self, offset: int, query_high: str) -> List[List[str]]:
         """return rows from offset to query_high, inclusive"""
         logging.info('scan %d %s', offset, query_high)
@@ -54,6 +67,10 @@ class RangeSearch:
     def _id_from_line(self, offset: int) -> str:
         self.text_io.seek(offset)
         return self.text_io.readline().split(SEP, 1)[0]
+
+    def _get_line(self, offset: int) -> str:
+        self.text_io.seek(offset)
+        return self.text_io.readline()
 
     def _seek_to_next_line(self, offset: int) -> int:
         """return offset of next line after offset"""
@@ -85,9 +102,29 @@ class RangeSearch:
         mid = (offset_l + offset_h) // 2
 
         line_start = self._seek_back_to_line_start(mid)
-        current_id = self._id_from_line(line_start)
+        #current_id = self._id_from_line(line_start)
+        current_line = self._get_line(line_start)
         next_line_start = self._seek_to_next_line(mid)
 
-        if current_id >= query:
+        #if current_id >= query:
+        if current_line >= query:
             return self._lower_bound(query=query, offset_l=offset_l, offset_h=line_start - 1)
         return self._lower_bound(query=query, offset_l=next_line_start, offset_h=offset_h)
+
+    def _upper_bound(self, query: str, offset_l: int, offset_h: int) -> int:
+        """return offset of the last row within bounds not more than query"""
+        logging.info('upper bound 2 %s %s %s', query, offset_l, offset_h)
+        if offset_l >= offset_h:
+            return self._seek_back_to_line_start(offset_l)
+
+        mid = (offset_l + offset_h) // 2
+
+        line_start = self._seek_back_to_line_start(mid)
+        #current_id = self._id_from_line(line_start)
+        current_line = self._get_line(line_start)
+        next_line_start = self._seek_to_next_line(mid)
+
+        #if current_id >= query:
+        if current_line <= query:
+            return self._upper_bound(query=query, offset_l=next_line_start, offset_h=offset_h)
+        return self._upper_bound(query=query, offset_l=offset_l, offset_h=line_start - 1)

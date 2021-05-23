@@ -1,6 +1,7 @@
 """Reads data from files."""
 # pylint: disable=too-few-public-methods, fixme, missing-function-docstring
 import logging
+import mmap
 import time
 from typing import Any, List, Tuple
 import pandas as pd #type:ignore
@@ -63,26 +64,33 @@ class DataReader:
         logging.info("path: %s rows_per_bucket: %d resample_freq: %s", path, rows_per_bucket, resample_freq)
 
         start_ns = time.time_ns()
-        with open(path) as file:
+        with open(path, 'r+') as file:
             with RangeSearch(file) as rng:
                 mid1_ns = time.time_ns()
                 logging.info("open microsec %d", (mid1_ns - start_ns) // 1000)
+                #rows: List[List[str]] = rng.search(start, end)
+                #data_frame = self._data_frame(rows)
 
-                rows: List[List[str]] = rng.search(start, end)
-
+                (lo, hi) = rng.search3(start, end)
                 mid2_ns = time.time_ns()
                 logging.info("search microsec %d", (mid2_ns - mid1_ns) // 1000)
 
-                data_frame = self._data_frame(rows)
+                lo_mm = mmap.ALLOCATIONGRANULARITY * (lo // mmap.ALLOCATIONGRANULARITY)
+                lo_diff = lo - lo_mm
+                with mmap.mmap(file.fileno(), hi-lo_mm, offset=lo_mm) as mm:
+                    mm.seek(lo_diff)
+                    data_frame = pd.read_csv(mm, delim_whitespace=True, index_col=0,
+                        parse_dates=True, header=None, names=['time', 'angle', 'volume_ul'],
+                        skiprows=0, memory_map=True, engine="c")
 
-                mid3_ns = time.time_ns()
-                logging.info("dataframe microsec %d", (mid3_ns - mid2_ns) // 1000)
+                    mid3_ns = time.time_ns()
+                    logging.info("dataframe microsec %d", (mid3_ns - mid2_ns) // 1000)
 
-                data_frame = rows_per_minute * data_frame.resample(resample_freq).sum() / rows_per_bucket
+                    data_frame = rows_per_minute * data_frame.resample(resample_freq).sum() / rows_per_bucket
 
-                end_ns = time.time_ns()
-                logging.info("resample microsec %d", (end_ns - mid3_ns) // 1000)
-                return data_frame
+                    end_ns = time.time_ns()
+                    logging.info("resample microsec %d", (end_ns - mid3_ns) // 1000)
+                    return data_frame
 
     # TODO: remove this
     @staticmethod
