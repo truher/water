@@ -5,31 +5,37 @@ import numpy as np
 import tensorflow as tf # type: ignore
 import sklearn.metrics # type: ignore
 
-mains = np.zeros(900)
-mains[100:200] = 1 # class0
-mains[300:400] = 2 # class1
-mains[500:600] = 3 # class0+1
-mains = mains + np.random.normal(0,0.1,900)
-mains = np.maximum(mains, 0)  # negative noise is nonphysical, don't try to predict it
+def make_data():
+    mains = np.zeros(900)
+    mains[100:200] = 1 # class0
+    mains[300:400] = 2 # class1
+    mains[500:600] = 3 # class0+1
+    mains = mains + np.random.normal(0,0.1,900)
+    mains = np.maximum(mains, 0)  # negative noise is nonphysical, don't try to predict it
 
-class0 = np.zeros(900)
-class0[100:200] = 1
-class0[500:600] = 1
-class1 = np.zeros(900)
-class1[300:400] = 1
-class1[500:600] = 1
+    class0 = np.zeros(900)
+    class0[100:200] = 1
+    class0[500:600] = 1
+    class1 = np.zeros(900)
+    class1[300:400] = 1
+    class1[500:600] = 1
 
-df = pd.DataFrame()
-df['mains'] = mains
-df['class0'] = class0
-df['class1'] = class1
-print("df")
-print(df[0:10])
+    df = pd.DataFrame()
+    df['mains'] = mains
+    df['class0'] = class0
+    df['class1'] = class1
+    print("df")
+    print(df[0:10])
 
-plt.plot(df['mains'])
-plt.plot(df['class0'])
-plt.plot(df['class1'])
+    return df
+
+df = make_data()
+
+for col in df:
+    plt.plot(df[col], label=col)
+plt.legend()
 plt.show()
+
 
 x = df[['mains']].values
 
