@@ -201,7 +201,7 @@ print(ymtrain.shape)
 print(m.summary())
 tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/classifier", histogram_freq=1)
 # note x in both the "in" and "out" positions here
-m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=1000, verbose=0, callbacks=[tb])
+m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=3000, verbose=0, callbacks=[tb])
 
 
 #y1 = m.predict(xtrain)
@@ -223,7 +223,7 @@ m.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
 
 print(m.summary()) # should show only 3 trainable params, but since bias is constrained it's actually only two
 tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/mains", histogram_freq=1)
-m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=400, verbose=0, callbacks=[tb])
+m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=2000, verbose=0, callbacks=[tb])
 
 print("done training!")
 
