@@ -224,6 +224,9 @@ print("mains mse:")
 #print(sklearn.metrics.mean_squared_error(ymtrain.reshape(-1,1), m1.reshape(-1,1)))
 print(sklearn.metrics.mean_squared_error(ymtrain.reshape(-1), m1.reshape(-1)))
 
+print("confusion matrices")
+print(sklearn.metrics.multilabel_confusion_matrix(shaped_training, shaped_c1.astype(int)))
+
 plt.plot(ymtrain.reshape(-1))
 plt.plot(m1.reshape(-1))
 plt.plot(shaped_c1)
