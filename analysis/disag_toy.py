@@ -74,8 +74,15 @@ def make_realistic_data():
     df['faucet'][81420:81435] = 1    # 22:37 15s
     df['sprinkler'][81900:84600] = 1 # 22:30-23:30
 
-    loads = [7.1, 4.4, 2.75, 0.9, 3.05, 1.0]
-    df['mains'] = df.dot(loads)
+    loads = pd.DataFrame()
+    loads['sprinkler'] = [7.1]
+    loads['front'] = [4.4]
+    loads['shower'] = [2.75]
+    loads['drip'] = [0.9]
+    loads['toilet'] = [3.05]
+    loads['faucet'] = [1.0]
+    print(loads)
+    df['mains'] = df.dot(loads.transpose())
     df['mains'] = df['mains'] + np.random.normal(0, 0.05, samples)
     df['mains'] = np.maximum(df['mains'], 0)  # negative noise is nonphysical, don't try to predict it
     return df, loads
@@ -201,7 +208,7 @@ print(ymtrain.shape)
 print(m.summary())
 tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/classifier", histogram_freq=1)
 # note x in both the "in" and "out" positions here
-m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=3000, verbose=0, callbacks=[tb])
+m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=5000, verbose=0, callbacks=[tb])
 
 
 #y1 = m.predict(xtrain)
@@ -223,7 +230,7 @@ m.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
 
 print(m.summary()) # should show only 3 trainable params, but since bias is constrained it's actually only two
 tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/mains", histogram_freq=1)
-m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=2000, verbose=0, callbacks=[tb])
+m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=1500, verbose=0, callbacks=[tb])
 
 print("done training!")
 
@@ -234,7 +241,9 @@ shaped_c1 = np.around(c1.reshape(-1,classes), 2)
 
 print("raw category result on training set:")
 #print(np.concatenate((yctrain.reshape(-1,2), c1.reshape(-1,2)),axis=1)[::10])
-print(np.concatenate((shaped_training, shaped_c1), axis=1)[::10])
+raw_cat_result = np.concatenate((shaped_training, shaped_c1), axis=1)
+print(raw_cat_result[::10])
+np.savetxt('raw_cat_result.tsv', raw_cat_result, fmt='%.1f', delimiter='\t')
 
 m1 = y1[1] # mains prediction
 print("mains result on training set:")
@@ -254,13 +263,13 @@ print(mains_weight_bias)
 
 predicted_loads = mo.get_weights()[0].reshape(-1)
 print("configured loads")
-print(loads)
+print(loads.transpose())
 print("predicted loads:")
 print(predicted_loads)
 print("predicted load comparison:")
-print(np.column_stack((np.around(loads,3), np.around(predicted_loads,3))))
+print(np.column_stack((np.around(loads.transpose(),3), np.around(predicted_loads,3))))
 print("predicted load mse:")
-print(sklearn.metrics.mean_squared_error(loads,predicted_loads))
+print(sklearn.metrics.mean_squared_error(loads.transpose(),predicted_loads))
 
 print(shaped_training)
 print(shaped_c1)
@@ -283,7 +292,9 @@ print(sklearn.metrics.multilabel_confusion_matrix(shaped_training, shaped_c1.ast
 tdf = pd.DataFrame(shaped_training, columns=df.columns[:-1])
 c1df = pd.DataFrame(shaped_c1, columns=df.columns[:-1])
 
-c1_main = c1df.dot(loads)
+#c1df.to_csv('category_predictions.csv')
+
+c1_main = c1df.dot(loads.transpose())
 
 fix,axs = plt.subplots(classes+1, sharex=True)
 
