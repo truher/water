@@ -7,36 +7,14 @@ import random
 import tensorflow as tf # type: ignore
 import sklearn.metrics # type: ignore
 
-print(tf.config.list_physical_devices())
-
-def make_random_data(classes, events, samples):
-    df = pd.DataFrame()
-    loads = []
-    for i in range(classes):
-        loads.append(random.uniform(0,10))
-        df['class'+str(i)] = np.zeros(samples)
-    print(loads)
-    for i in range(events):
-        start = random.randrange(0, samples)
-        end = min(start + random.randrange(20, 100), samples)
-        load = random.randrange(0, classes)
-        df['class'+str(load)][start:end] = 1
-        print(f"start {start} end {end} load {load}")
-    df['mains'] = df.dot(loads)
-    df['mains'] = df['mains'] + np.random.normal(0, 0.1, samples)
-    df['mains'] = np.maximum(df['mains'], 0)  # negative noise is nonphysical, don't try to predict it
-    return df, loads
+print("available tensorflow devices:", tf.config.list_physical_devices())
 
 def flow(df, name, interval):
     start_str, duration_str = interval.split('/')
     start = isodate.parse_time(start_str)
-    #print(start)
     duration = isodate.parse_duration(duration_str)
-    #print(duration)
     start_sec = int(3600 * start.hour + 60 * start.minute + start.second)
     duration_sec = int(duration.total_seconds())
-    #print(start_sec)
-    #print(start_sec + duration_sec)
     df[name][start_sec:start_sec + duration_sec] = 1
 
 def make_realistic_data():
@@ -77,20 +55,13 @@ def make_realistic_data():
     loads['drip'] = [0.9]
     loads['toilet'] = [3.05]
     loads['faucet'] = [1.0]
-    print(loads)
     df['mains'] = df.dot(loads.transpose())
     df['mains'] = df['mains'] + np.random.normal(0, 0.05, samples)
     df['mains'] = np.maximum(df['mains'], 0)  # negative noise is nonphysical, don't try to predict it
     return df, loads
 
 kernel_size = 5 # please be odd
-#batch_size = 111
 batch_size = 111
-#classes = 8
-#events = 20
-#samples = 2000
-#df, loads = make_random_data(classes, events, samples)
-#df = make_data()
 
 df, loads = make_realistic_data()
 classes = len(df.columns) - 1
@@ -99,23 +70,14 @@ samples = len(df.index)
 reshape_samples = (batch_size * kernel_size) * (samples // (batch_size * kernel_size))
 print(reshape_samples)
 
-print("df")
-print(df[0:10])
-
 for col in df:
     plt.plot(df[col], label=col)
 plt.legend()
 plt.show()
 
+x = df['mains'].values
 
-#x = df[['mains']].values
-x = df.iloc[:,-1].values
-
-#print("mains input")
-#print(x[0:10])
-
-#y = df[['class0','class1']].values
-y = df.iloc[:,:-1].values
+y = df.drop(columns='mains').values
 
 #print("category labels")
 #print(y[0:10])
@@ -143,9 +105,7 @@ with tf.device('/cpu:0'):
     c = tf.keras.layers.Dense(units=classes*10, activation='relu',
         name="middle_layer")
 
-    #o = tf.keras.layers.Dense(units=2,
     o = tf.keras.layers.Dense(units=classes,
-        #activation='hard_sigmoid', # learns faster
         activation='sigmoid',
         name="category_output")
 
@@ -155,7 +115,6 @@ with tf.device('/cpu:0'):
         kernel_constraint=tf.keras.constraints.NonNeg(), # weights are never negative
         kernel_initializer=tf.keras.initializers.Ones(),
         # no-category-activated should be no-output so force zero bias (don't learn the noise)
-        # low rate means it can learn for awhile
         bias_constraint=tf.keras.constraints.MinMaxNorm(min_value=0.0, max_value=0.0, rate=1.0),
         name="mains_output")
 
@@ -179,35 +138,23 @@ with tf.device('/cpu:0'):
 
     print("train classifier ...")
 
-    # batches of 11
-    #xtrain = x[0:891].reshape(-1,11,1)
     xtrain = x[0:reshape_samples].reshape(-1,batch_size,1)
     print("xtrain")
     print(xtrain.shape)
-    #print(xtrain)
 
     yctrain = y[0:reshape_samples].reshape(-1,batch_size,classes)
     shaped_training = yctrain.reshape(-1,classes).astype(int)
     ymtrain = x[0:reshape_samples].reshape(-1,batch_size,1)
     print("yctrain")
     print(yctrain.shape)
-    #print(yctrain)
     print("ymtrain")
     print(ymtrain.shape)
-    #print(ymtrain)
-
 
     print(m.summary())
     tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/classifier", histogram_freq=1)
     # note x in both the "in" and "out" positions here
-    m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=5000, verbose=0, callbacks=[tb])
-
-
-    #y1 = m.predict(xtrain)
-    #c1 = y1[0] # categorical prediction
-    #print("raw category result on training set:")
-    #print(np.concatenate((yctrain.reshape(-1,2), c1.reshape(-1,2)),axis=1)[::10])
-    #print(np.concatenate((shaped_training, c1.reshape(-1,classes)),axis=1)[::10])
+    m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=5000, verbose=0, callbacks=[tb],
+        validation_data=(xtrain, [yctrain, ymtrain])) # what does validation do?
 
     print("train mains output ...")
 
@@ -222,38 +169,23 @@ with tf.device('/cpu:0'):
 
     print(m.summary()) # should show only 3 trainable params, but since bias is constrained it's actually only two
     tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/mains", histogram_freq=1)
-    m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=1500, verbose=0, callbacks=[tb])
+    m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=1500, verbose=0, callbacks=[tb],
+        validation_data=(xtrain, [yctrain, ymtrain])) # what does validation do?
 
     print("done training!")
 
     y1 = m.predict(xtrain)
+
     c1 = y1[0] # categorical prediction
-    #shaped_c1 = np.around(c1.reshape(-1,classes)).astype(int)
     shaped_c1 = np.around(c1.reshape(-1,classes), 2)
 
     print("raw category result on training set:")
-    #print(np.concatenate((yctrain.reshape(-1,2), c1.reshape(-1,2)),axis=1)[::10])
     raw_cat_result = np.concatenate((shaped_training, shaped_c1), axis=1)
-    print(raw_cat_result[::10])
     np.savetxt('raw_cat_result.tsv', raw_cat_result, fmt='%.1f', delimiter='\t')
-    # classification wants indicator
     shaped_c1 = np.around(shaped_c1).astype(int)
 
     m1 = y1[1] # mains prediction
     print("mains result on training set:")
-    print(np.concatenate( ( np.around(ymtrain.reshape(-1,1),2), np.around(m1.reshape(-1,1),2)), axis=1)[::10])
-
-    #print("conv weights:")
-    #print(conv.get_weights())
-    #print("center weights:")
-    #print(c.get_weights())
-    #print("category output weights:")
-    #print(o.get_weights())
-    print("mains output weights:")
-    print(mo.get_weights())
-    mains_weight_bias = mo.get_weights()[1][0]
-    print("mains weight bias:")
-    print(mains_weight_bias)
 
     predicted_loads = mo.get_weights()[0].reshape(-1)
     print("configured loads")
@@ -266,16 +198,15 @@ with tf.device('/cpu:0'):
     print(sklearn.metrics.mean_squared_error(loads.transpose(),predicted_loads))
 
     print("category accuracy:")
-    #print(sklearn.metrics.accuracy_score(yctrain.reshape(-1,2), np.around(c1.reshape(-1,2))))
     print(sklearn.metrics.accuracy_score(shaped_training, shaped_c1))
+
     print("category precision (predicted events that were labeled):")
-    #print(sklearn.metrics.precision_score(yctrain.reshape(-1,2), np.around(c1.reshape(-1,2)),average=None))
     print(sklearn.metrics.precision_score(shaped_training, shaped_c1, average=None))
+
     print("category recall (labeled events that were predicted):")
-    #print(sklearn.metrics.recall_score(yctrain.reshape(-1,2), np.around(c1.reshape(-1,2)),average=None))
     print(sklearn.metrics.recall_score(shaped_training, shaped_c1, average=None))
+
     print("mains mse:")
-    #print(sklearn.metrics.mean_squared_error(ymtrain.reshape(-1,1), m1.reshape(-1,1)))
     print(sklearn.metrics.mean_squared_error(ymtrain.reshape(-1), m1.reshape(-1)))
 
     print("confusion matrices")
@@ -290,8 +221,6 @@ with tf.device('/cpu:0'):
 
     fix,axs = plt.subplots(classes+1, sharex=True)
 
-    #plt.plot(ymtrain.reshape(-1), label='mains observed')
-    #plt.plot(m1.reshape(-1), label='mains predicted')
     axs[0].plot(ymtrain.reshape(-1), label='mains observed')
     axs[0].plot(c1_main, label='mains predicted using known loads')
     axs[0].plot(m1.reshape(-1), label='mains predicted using predicted loads')
@@ -300,5 +229,4 @@ with tf.device('/cpu:0'):
         axs[i+1].plot(tdf[col], label=col+' observed')
         axs[i+1].plot(c1df[col], label=col+' predicted')
         axs[i+1].legend(loc='upper left')
-    #plt.legend()
     plt.show()
