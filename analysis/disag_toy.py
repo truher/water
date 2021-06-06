@@ -60,6 +60,15 @@ def make_realistic_data():
     df['mains'] = np.maximum(df['mains'], 0)  # negative noise is nonphysical, don't try to predict it
     return df, loads
 
+def plot_frames(tdf, c1df):
+    fix, axs = plt.subplots(len(tdf.columns), sharex=True)
+    for i, col in enumerate(tdf):
+        axs[i].plot(tdf[col], label=col+' observed')
+        if c1df is not None:
+            axs[i].plot(c1df[col], label=col+' predicted')
+        axs[i].legend(loc='upper left')
+    plt.show()
+
 kernel_size = 5 # please be odd
 batch_size = 111
 
@@ -70,21 +79,13 @@ samples = len(df.index)
 reshape_samples = (batch_size * kernel_size) * (samples // (batch_size * kernel_size))
 print(reshape_samples)
 
-for col in df:
-    plt.plot(df[col], label=col)
-plt.legend()
-plt.show()
+plot_frames(df, None)
 
 x = df['mains'].values
 
 y = df.drop(columns='mains').values
 
-#print("category labels")
-#print(y[0:10])
-
 with tf.device('/cpu:0'):
-    # batches of 11 timesteps
-    # make this MUCH wider, try 111
     i = tf.keras.Input(shape=(batch_size,1),
         name="input_layer")
 
@@ -188,10 +189,6 @@ with tf.device('/cpu:0'):
     print("mains result on training set:")
 
     predicted_loads = mo.get_weights()[0].reshape(-1)
-    print("configured loads")
-    print(loads.transpose())
-    print("predicted loads:")
-    print(predicted_loads)
     print("predicted load comparison:")
     print(np.column_stack((np.around(loads.transpose(),3), np.around(predicted_loads,3))))
     print("predicted load mse:")
@@ -212,21 +209,11 @@ with tf.device('/cpu:0'):
     print("confusion matrices")
     print(sklearn.metrics.multilabel_confusion_matrix(shaped_training, shaped_c1))
 
+
     tdf = pd.DataFrame(shaped_training, columns=df.columns[:-1])
+    tdf['mains'] = ymtrain.reshape(-1)
     c1df = pd.DataFrame(shaped_c1, columns=df.columns[:-1])
+    c1df['mains'] = m1.reshape(-1)
 
-    #c1df.to_csv('category_predictions.csv')
+    plot_frames(tdf, c1df)
 
-    c1_main = c1df.dot(loads.transpose())
-
-    fix,axs = plt.subplots(classes+1, sharex=True)
-
-    axs[0].plot(ymtrain.reshape(-1), label='mains observed')
-    axs[0].plot(c1_main, label='mains predicted using known loads')
-    axs[0].plot(m1.reshape(-1), label='mains predicted using predicted loads')
-    axs[0].legend(loc='upper left')
-    for i,col in enumerate(c1df):
-        axs[i+1].plot(tdf[col], label=col+' observed')
-        axs[i+1].plot(c1df[col], label=col+' predicted')
-        axs[i+1].legend(loc='upper left')
-    plt.show()
