@@ -1,34 +1,13 @@
 """multi-label classification using toy dataset"""
+import isodate
 import matplotlib.pyplot as plt # type: ignore
-import pandas as pd # type: ignore
 import numpy as np
+import pandas as pd # type: ignore
 import random
 import tensorflow as tf # type: ignore
 import sklearn.metrics # type: ignore
 
 print(tf.config.list_physical_devices())
-
-def make_data():
-    mains = np.zeros(900)
-    mains[100:200] = 1 # class0
-    mains[300:400] = 2 # class1
-    mains[500:600] = 3 # class0+1
-    mains = mains + np.random.normal(0,0.1,900)
-    mains = np.maximum(mains, 0)  # negative noise is nonphysical, don't try to predict it
-
-    class0 = np.zeros(900)
-    class0[100:200] = 1
-    class0[500:600] = 1
-    class1 = np.zeros(900)
-    class1[300:400] = 1
-    class1[500:600] = 1
-
-    df = pd.DataFrame()
-    df['mains'] = mains
-    df['class0'] = class0
-    df['class1'] = class1
-
-    return df
 
 def make_random_data(classes, events, samples):
     df = pd.DataFrame()
@@ -48,6 +27,18 @@ def make_random_data(classes, events, samples):
     df['mains'] = np.maximum(df['mains'], 0)  # negative noise is nonphysical, don't try to predict it
     return df, loads
 
+def flow(df, name, interval):
+    start_str, duration_str = interval.split('/')
+    start = isodate.parse_time(start_str)
+    #print(start)
+    duration = isodate.parse_duration(duration_str)
+    #print(duration)
+    start_sec = int(3600 * start.hour + 60 * start.minute + start.second)
+    duration_sec = int(duration.total_seconds())
+    #print(start_sec)
+    #print(start_sec + duration_sec)
+    df[name][start_sec:start_sec + duration_sec] = 1
+
 def make_realistic_data():
     samples = 86400
 
@@ -60,21 +51,24 @@ def make_realistic_data():
     df['faucet'] = np.zeros(samples)
 
     # this is modeled after jun 2
-    df['shower'][27420:28140] = 1    #  7:37-7:49
-    df['shower'][33900:34320] = 1    #  9:25-9:32
-    df['toilet'][33720:33755] = 1    #  9:22 35s
-    df['toilet'][33780:33815] = 1    #  9:23 35s
-    df['toilet'][33840:33875] = 1    #  9:24 35s
-    df['front'][36180:37260] = 1     # 10:03-10:21
-    df['drip'][39600:43200] = 1      # 11:00-12:00
-    df['toilet'][58140:58175] = 1    # 16:09 35s
-    df['toilet'][58200:58235] = 1    # 16:10 35s
-    df['toilet'][80520:80555] = 1    # 22:22 35s
-    df['faucet'][80580:80585] = 1    # 22:23 5s
-    df['faucet'][80760:80775] = 1    # 22:26 15s
-    df['toilet'][81300:81335] = 1    # 22:35 35s
-    df['faucet'][81420:81435] = 1    # 22:37 15s
-    df['sprinkler'][81900:84600] = 1 # 22:30-23:30
+    for h in range(7,10):
+        m = random.randint(20,40)
+        d = random.randint(5,15)
+        flow(df, 'shower', f'{h:02d}:{m:02d}/PT{d:d}M')
+
+    for h in range(7,22,2):
+        for e in range(random.randint(0,3)):
+            m = random.randint(0,50) + 2 * e
+            flow(df, 'toilet', f'{h:02d}:{m:02d}/PT35S')
+    flow(df, 'front', '10:03/PT18M')
+    flow(df, 'drip', '11:00/PT1H')
+    for e in range(random.randint(10,30)):
+        h = random.randint(7,22)
+        m = random.randint(0,59)
+        d = random.randint(5,100)
+        flow(df, 'faucet', f'{h:02d}:{m:02d}/PT{d:d}S')
+    
+    flow(df, 'sprinkler', '22:30/PT1H')
 
     loads = pd.DataFrame()
     loads['sprinkler'] = [7.1]
@@ -135,15 +129,15 @@ with tf.device('/cpu:0'):
     # number of filters, 17, is arbitrary, just different from all the other numbers
     # kernel is window width
     # 7 windows of 5 fit in a batch of 11
-    conv = tf.keras.layers.Conv1D(filters=17, kernel_size=kernel_size, activation='relu',
+    conv = tf.keras.layers.Conv1D(filters=17, kernel_size=kernel_size, activation='relu', padding='same',
         name="conv_layer")
     #pool = tf.keras.layers.MaxPool1D(pool_size=13,
         #name="pool_layer")
-    conv_2 = tf.keras.layers.Conv1D(filters=19, kernel_size=5, activation='relu',
+    conv_2 = tf.keras.layers.Conv1D(filters=19, kernel_size=5, activation='relu', padding='same',
         name="conv_layer_2")
     #pool_2 = tf.keras.layers.MaxPool1D(pool_size=13,
         #name="pool_layer_2")
-    conv_3 = tf.keras.layers.Conv1D(filters=23, kernel_size=5, activation='relu',
+    conv_3 = tf.keras.layers.Conv1D(filters=23, kernel_size=5, activation='relu', padding='same',
         name="conv_layer_3")
 
     c = tf.keras.layers.Dense(units=classes*10, activation='relu',
@@ -192,14 +186,9 @@ with tf.device('/cpu:0'):
     print(xtrain.shape)
     #print(xtrain)
 
-    # each span of 5 predicts the features at the center sample
-    #yctrain = y[0:891].reshape(-1,11,2)[:,2:-2]
-    #yctrain = y[0:891].reshape(-1,11,classes)[:,2:-2]
-    conv_layers = 3
-    yctrain = y[0:reshape_samples].reshape(-1,batch_size,classes)[:, conv_layers * (kernel_size//2):-(conv_layers * (kernel_size//2))]
+    yctrain = y[0:reshape_samples].reshape(-1,batch_size,classes)
     shaped_training = yctrain.reshape(-1,classes).astype(int)
-    #ymtrain = x[0:891].reshape(-1,11,1)[:,2:-2]
-    ymtrain = x[0:reshape_samples].reshape(-1,batch_size,1)[:, conv_layers * (kernel_size//2):-(conv_layers * (kernel_size//2))]
+    ymtrain = x[0:reshape_samples].reshape(-1,batch_size,1)
     print("yctrain")
     print(yctrain.shape)
     #print(yctrain)
