@@ -81,7 +81,7 @@ samples = len(df.index)
 reshape_samples = (batch_size * kernel_size) * (samples // (batch_size * kernel_size))
 print(reshape_samples)
 
-plot_frames(df, None)
+#plot_frames(df, None)
 
 x = df['mains'].values
 print("x len", len(x))
@@ -99,14 +99,10 @@ class IL(tf.keras.layers.Layer):
         return super().call(inputs, *args, **kwargs)
 
 with tf.device('/cpu:0'):
-    #i = tf.keras.Input(shape=(batch_size,1), # do i need to specify this?
-    i = tf.keras.Input(shape=(None,1), # do i need to specify this?
+    i = tf.keras.Input(shape=(None,1),
         name="input_layer")
     i2 = IL()
 
-    # number of filters, 17, is arbitrary, just different from all the other numbers
-    # kernel is window width
-    # 7 windows of 5 fit in a batch of 11
     conv = tf.keras.layers.Conv1D(filters=17, kernel_size=kernel_size, activation='relu', padding='same',
         name="conv_layer")
     #pool = tf.keras.layers.MaxPool1D(pool_size=13,
@@ -155,35 +151,26 @@ with tf.device('/cpu:0'):
     print("train classifier ...")
 
     xtrain = x[0:reshape_samples].reshape(-1,batch_size,1)
-    print("xtrain")
-    print(xtrain.shape)
-    print(type(xtrain))
-    print(list(xtrain))
-    #np.savetxt('xtrain.tsv', xtrain, fmt='%f', delimiter='\t')
-
     yctrain = y[0:reshape_samples].reshape(-1,batch_size,classes)
     shaped_training = yctrain.reshape(-1,classes).astype(int)
     ymtrain = x[0:reshape_samples].reshape(-1,batch_size,1)
-    print("yctrain")
-    print(yctrain.shape)
-    print("ymtrain")
-    print(ymtrain.shape)
+
+    real_batch_size = 111
+    sequence_length = 111
+    all_samples = (real_batch_size * sequence_length) * (len(x) // (real_batch_size * sequence_length))
+    x_sequences = x[0:all_samples].reshape(-1, sequence_length, 1)
+    y_sequences = y[0:all_samples].reshape(-1, sequence_length, classes)
+    # this is the original dataframe again :-) TODO: use it
+    sequences = np.concatenate((x_sequences, y_sequences), axis=2)
 
     def datagenerator():
-        real_batch_size = 111
-        sequence_length = 111
-        n = 0
         while True:
-            #n = random.randint(0, len(x)-(real_batch_size*sequence_length))
-            #x_batch = x[n:n+real_batch_size].reshape(-1, batch_size, 1)
-            x_batch = x[n:n+(real_batch_size*sequence_length)].reshape(-1, sequence_length, 1)
-            #tf.print(x_batch)
-            y_batch = y[n:n+(real_batch_size*sequence_length)].reshape(-1, sequence_length, classes)
-            #tf.print(y_batch)
-            n += real_batch_size * sequence_length
-            if n > len(x) - (real_batch_size * sequence_length):
-                n = 0
-            yield(x_batch, {'category_output':y_batch, 'mains_output':x_batch})
+            np.random.shuffle(sequences)
+            batches = sequences.reshape(-1, real_batch_size, sequence_length, classes + 1)
+            for n in range(len(batches)): # one epoch
+                x_batch = batches[n][...,np.newaxis,0]
+                y_batch = batches[n][...,1:]
+                yield(x_batch, {'category_output':y_batch, 'mains_output':x_batch})
 
     print(m.summary())
 
@@ -196,12 +183,12 @@ with tf.device('/cpu:0'):
             keys = list(logs.keys())
             #print("...Training: start of batch {}; got log keys: {}".format(batch, keys))
 
+    gen = datagenerator()
+    vgen = datagenerator()
  
     tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/classifier", histogram_freq=1)
-    # note x in both the "in" and "out" positions here
-    #m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=5000, verbose=1, callbacks=[tb, CC()],
-    #    validation_data=(xtrain, [yctrain, ymtrain])) # what does validation do?
-    m.fit(datagenerator(), epochs=5000, verbose=1, callbacks=[tb, CC()], steps_per_epoch=7)
+    m.fit(x=gen, epochs=2000, verbose=1, callbacks=[tb], 
+          validation_data=vgen, steps_per_epoch=7, validation_steps=1)
 
     print("train mains output ...")
 
@@ -213,14 +200,10 @@ with tf.device('/cpu:0'):
     o.trainable = False
     loss_weights = { "category_output": 0.0, "mains_output": 1.0 }
     m.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
-
-    print(m.summary()) # should show only 3 trainable params, but since bias is constrained it's actually only two
+    print(m.summary())
     tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/mains", histogram_freq=1)
-
-    #m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=1500, verbose=0, callbacks=[tb],
-    #    validation_data=(xtrain, [yctrain, ymtrain])) # what does validation do?
-    m.fit(datagenerator(), epochs=5000, verbose=1, callbacks=[tb,CC()], steps_per_epoch=7)
-
+    m.fit(x=datagenerator(), epochs=2000, verbose=0, callbacks=[tb],
+          validation_data=vgen, steps_per_epoch=7, validation_steps=1)
     print("done training!")
 
     y1 = m.predict(xtrain)
