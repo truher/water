@@ -8,7 +8,7 @@ import tensorflow as tf # type: ignore
 import sklearn.metrics # type: ignore
 
 print("available tensorflow devices:", tf.config.list_physical_devices())
-print("eager?", tf.executing_eagerly())
+print("eager:", tf.executing_eagerly())
 
 def flow(df, name, interval):
     start_str, duration_str = interval.split('/')
@@ -70,25 +70,6 @@ def plot_frames(tdf, c1df):
         axs[i].legend(loc='upper left')
     plt.show()
 
-kernel_size = 5 # please be odd
-# the expectation is a 3 tensor: (batches, sequences, features)
-batch_size = 111 # so this is actually the sequence length not the batch.  :-(
-
-df, loads = make_realistic_data()
-classes = len(df.columns) - 1
-samples = len(df.index)
-
-reshape_samples = (batch_size * kernel_size) * (samples // (batch_size * kernel_size))
-print(reshape_samples)
-
-#plot_frames(df, None)
-
-x = df['mains'].values
-print("x len", len(x))
-
-y = df.drop(columns='mains').values
-print("y len", len(y))
-
 class IL(tf.keras.layers.Layer):
     def call(self, inputs, *args, **kwargs):
         #tf.print("================================ CALL ================================")
@@ -99,11 +80,18 @@ class IL(tf.keras.layers.Layer):
         return super().call(inputs, *args, **kwargs)
 
 with tf.device('/cpu:0'):
+
+    # make some data
+    df, loads = make_realistic_data()
+    #plot_frames(df, None)
+    classes = len(df.columns) - 1
+
+    # make the model
     i = tf.keras.Input(shape=(None,1),
         name="input_layer")
     i2 = IL()
 
-    conv = tf.keras.layers.Conv1D(filters=17, kernel_size=kernel_size, activation='relu', padding='same',
+    conv = tf.keras.layers.Conv1D(filters=17, kernel_size=5, activation='relu', padding='same',
         name="conv_layer")
     #pool = tf.keras.layers.MaxPool1D(pool_size=13,
         #name="pool_layer")
@@ -148,16 +136,19 @@ with tf.device('/cpu:0'):
     o.trainable = True
     m.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
 
-    print("train classifier ...")
+    # model is done!
 
-    xtrain = x[0:reshape_samples].reshape(-1,batch_size,1)
-    yctrain = y[0:reshape_samples].reshape(-1,batch_size,classes)
-    shaped_training = yctrain.reshape(-1,classes).astype(int)
-    ymtrain = x[0:reshape_samples].reshape(-1,batch_size,1)
+    x = df['mains'].values
+    print("x len", len(x))
+    y = df.drop(columns='mains').values
+    print("y len", len(y))
 
-    real_batch_size = 111
-    sequence_length = 111
-    all_samples = (real_batch_size * sequence_length) * (len(x) // (real_batch_size * sequence_length))
+    samples = len(df.index)
+
+    batch_size = 10
+    #sequence_length = 111
+    sequence_length = 3600 # seconds!  want the window to see whole events
+    all_samples = (batch_size * sequence_length) * (len(x) // (batch_size * sequence_length))
     x_sequences = x[0:all_samples].reshape(-1, sequence_length, 1)
     y_sequences = y[0:all_samples].reshape(-1, sequence_length, classes)
     # this is the original dataframe again :-) TODO: use it
@@ -165,8 +156,8 @@ with tf.device('/cpu:0'):
 
     def datagenerator():
         while True:
-            np.random.shuffle(sequences)
-            batches = sequences.reshape(-1, real_batch_size, sequence_length, classes + 1)
+            np.random.shuffle(sequences) # TODO: overlapping sequences
+            batches = sequences.reshape(-1, batch_size, sequence_length, classes + 1)
             for n in range(len(batches)): # one epoch
                 x_batch = batches[n][...,np.newaxis,0]
                 y_batch = batches[n][...,1:]
@@ -174,23 +165,14 @@ with tf.device('/cpu:0'):
 
     print(m.summary())
 
-    class CC(tf.keras.callbacks.Callback):
-        def on_epoch_begin(self, epoch, logs=None):
-            keys = list(logs.keys())
-            #print(self.model.layers)
-            #print("Start epoch {} of training; got log keys: {}".format(epoch, keys))
-        def on_train_batch_begin(self, batch, logs):
-            keys = list(logs.keys())
-            #print("...Training: start of batch {}; got log keys: {}".format(batch, keys))
-
     gen = datagenerator()
     vgen = datagenerator()
  
     tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/classifier", histogram_freq=1)
+
+    print("train classifier ...")
     m.fit(x=gen, epochs=2000, verbose=1, callbacks=[tb], 
           validation_data=vgen, steps_per_epoch=7, validation_steps=1)
-
-    print("train mains output ...")
 
     i.trainable = False
     conv.trainable = False
@@ -202,14 +184,18 @@ with tf.device('/cpu:0'):
     m.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
     print(m.summary())
     tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/mains", histogram_freq=1)
-    m.fit(x=datagenerator(), epochs=2000, verbose=0, callbacks=[tb],
+
+    print("train mains output ...")
+    m.fit(x=datagenerator(), epochs=2000, verbose=1, callbacks=[tb],
           validation_data=vgen, steps_per_epoch=7, validation_steps=1)
     print("done training!")
 
-    y1 = m.predict(xtrain)
+    #y1 = m.predict(xtrain)
+    y1 = m.predict(x_sequences)
 
     c1 = y1[0] # categorical prediction
     shaped_c1 = np.around(c1.reshape(-1,classes), 2)
+    shaped_training = y_sequences.reshape(-1,classes).astype(int)
 
     print("raw category result on training set:")
     raw_cat_result = np.concatenate((shaped_training, shaped_c1), axis=1)
@@ -235,16 +221,14 @@ with tf.device('/cpu:0'):
     print(sklearn.metrics.recall_score(shaped_training, shaped_c1, average=None))
 
     print("mains mse:")
-    print(sklearn.metrics.mean_squared_error(ymtrain.reshape(-1), m1.reshape(-1)))
+    print(sklearn.metrics.mean_squared_error(x_sequences.reshape(-1), m1.reshape(-1)))
 
     print("confusion matrices")
     print(sklearn.metrics.multilabel_confusion_matrix(shaped_training, shaped_c1))
 
-
     tdf = pd.DataFrame(shaped_training, columns=df.columns[:-1])
-    tdf['mains'] = ymtrain.reshape(-1)
+    tdf['mains'] = x_sequences.reshape(-1)
     c1df = pd.DataFrame(shaped_c1, columns=df.columns[:-1])
     c1df['mains'] = m1.reshape(-1)
 
     plot_frames(tdf, c1df)
-
