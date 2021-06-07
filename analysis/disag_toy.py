@@ -8,6 +8,7 @@ import tensorflow as tf # type: ignore
 import sklearn.metrics # type: ignore
 
 print("available tensorflow devices:", tf.config.list_physical_devices())
+print("eager?", tf.executing_eagerly())
 
 def flow(df, name, interval):
     start_str, duration_str = interval.split('/')
@@ -70,7 +71,8 @@ def plot_frames(tdf, c1df):
     plt.show()
 
 kernel_size = 5 # please be odd
-batch_size = 111
+# the expectation is a 3 tensor: (batches, sequences, features)
+batch_size = 111 # so this is actually the sequence length not the batch.  :-(
 
 df, loads = make_realistic_data()
 classes = len(df.columns) - 1
@@ -82,12 +84,25 @@ print(reshape_samples)
 plot_frames(df, None)
 
 x = df['mains'].values
+print("x len", len(x))
 
 y = df.drop(columns='mains').values
+print("y len", len(y))
+
+class IL(tf.keras.layers.Layer):
+    def call(self, inputs, *args, **kwargs):
+        #tf.print("================================ CALL ================================")
+        #tf.print(type(inputs))
+        #tf.print("input len:", len(inputs)) # 111
+        #tf.print("input[0] len", len(inputs[0])) # also 111
+        #tf.print("input[0][0] len", len(inputs[0][0])) # 1
+        return super().call(inputs, *args, **kwargs)
 
 with tf.device('/cpu:0'):
-    i = tf.keras.Input(shape=(batch_size,1),
+    #i = tf.keras.Input(shape=(batch_size,1), # do i need to specify this?
+    i = tf.keras.Input(shape=(None,1), # do i need to specify this?
         name="input_layer")
+    i2 = IL()
 
     # number of filters, 17, is arbitrary, just different from all the other numbers
     # kernel is window width
@@ -120,7 +135,7 @@ with tf.device('/cpu:0'):
         name="mains_output")
 
     #conv_branch = conv_3(pool_2(conv_2(pool(conv(i)))))
-    conv_branch = conv_3(conv_2(conv(i)))
+    conv_branch = conv_3(conv_2(conv(i2(i))))
     internal_branch = c(conv_branch)
     category_branch = o(internal_branch)
     mains_branch = mo(category_branch)
@@ -142,6 +157,9 @@ with tf.device('/cpu:0'):
     xtrain = x[0:reshape_samples].reshape(-1,batch_size,1)
     print("xtrain")
     print(xtrain.shape)
+    print(type(xtrain))
+    print(list(xtrain))
+    #np.savetxt('xtrain.tsv', xtrain, fmt='%f', delimiter='\t')
 
     yctrain = y[0:reshape_samples].reshape(-1,batch_size,classes)
     shaped_training = yctrain.reshape(-1,classes).astype(int)
@@ -151,11 +169,39 @@ with tf.device('/cpu:0'):
     print("ymtrain")
     print(ymtrain.shape)
 
+    def datagenerator():
+        real_batch_size = 111
+        sequence_length = 111
+        n = 0
+        while True:
+            #n = random.randint(0, len(x)-(real_batch_size*sequence_length))
+            #x_batch = x[n:n+real_batch_size].reshape(-1, batch_size, 1)
+            x_batch = x[n:n+(real_batch_size*sequence_length)].reshape(-1, sequence_length, 1)
+            #tf.print(x_batch)
+            y_batch = y[n:n+(real_batch_size*sequence_length)].reshape(-1, sequence_length, classes)
+            #tf.print(y_batch)
+            n += real_batch_size * sequence_length
+            if n > len(x) - (real_batch_size * sequence_length):
+                n = 0
+            yield(x_batch, {'category_output':y_batch, 'mains_output':x_batch})
+
     print(m.summary())
+
+    class CC(tf.keras.callbacks.Callback):
+        def on_epoch_begin(self, epoch, logs=None):
+            keys = list(logs.keys())
+            #print(self.model.layers)
+            #print("Start epoch {} of training; got log keys: {}".format(epoch, keys))
+        def on_train_batch_begin(self, batch, logs):
+            keys = list(logs.keys())
+            #print("...Training: start of batch {}; got log keys: {}".format(batch, keys))
+
+ 
     tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/classifier", histogram_freq=1)
     # note x in both the "in" and "out" positions here
-    m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=5000, verbose=0, callbacks=[tb],
-        validation_data=(xtrain, [yctrain, ymtrain])) # what does validation do?
+    #m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=5000, verbose=1, callbacks=[tb, CC()],
+    #    validation_data=(xtrain, [yctrain, ymtrain])) # what does validation do?
+    m.fit(datagenerator(), epochs=5000, verbose=1, callbacks=[tb, CC()], steps_per_epoch=7)
 
     print("train mains output ...")
 
@@ -170,8 +216,10 @@ with tf.device('/cpu:0'):
 
     print(m.summary()) # should show only 3 trainable params, but since bias is constrained it's actually only two
     tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/mains", histogram_freq=1)
-    m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=1500, verbose=0, callbacks=[tb],
-        validation_data=(xtrain, [yctrain, ymtrain])) # what does validation do?
+
+    #m.fit(xtrain, [yctrain, ymtrain], batch_size=batch_size, epochs=1500, verbose=0, callbacks=[tb],
+    #    validation_data=(xtrain, [yctrain, ymtrain])) # what does validation do?
+    m.fit(datagenerator(), epochs=5000, verbose=1, callbacks=[tb,CC()], steps_per_epoch=7)
 
     print("done training!")
 
