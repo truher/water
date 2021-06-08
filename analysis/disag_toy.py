@@ -19,7 +19,10 @@ def flow(df, name, interval):
     duration_sec = int(duration.total_seconds())
     df[name][start_sec:start_sec + duration_sec] = 1
 
+SCALE = 10
+
 def make_realistic_data():
+    """Return a dataframe of observations and a dataframe of loads, both full scale"""
     samples = 86400
 
     df = pd.DataFrame()
@@ -86,15 +89,15 @@ def make_model(classes):
         name="input_layer")
     i2 = IL()
 
-    conv = tf.keras.layers.Conv1D(filters=17, kernel_size=5, activation='relu', padding='same',
+    conv = tf.keras.layers.Conv1D(filters=17, kernel_size=15, activation='relu', padding='same', dilation_rate = 4,
         name="conv_layer")
     #pool = tf.keras.layers.MaxPool1D(pool_size=13,
         #name="pool_layer")
-    conv_2 = tf.keras.layers.Conv1D(filters=19, kernel_size=5, activation='relu', padding='same',
+    conv_2 = tf.keras.layers.Conv1D(filters=19, kernel_size=15, activation='relu', padding='same', dilation_rate = 16,
         name="conv_layer_2")
     #pool_2 = tf.keras.layers.MaxPool1D(pool_size=13,
         #name="pool_layer_2")
-    conv_3 = tf.keras.layers.Conv1D(filters=23, kernel_size=5, activation='relu', padding='same',
+    conv_3 = tf.keras.layers.Conv1D(filters=23, kernel_size=15, activation='relu', padding='same', dilation_rate = 64,
         name="conv_layer_3")
 
     c = tf.keras.layers.Dense(units=classes*10, activation='relu',
@@ -127,20 +130,23 @@ def make_model(classes):
     return m
 
 def datagenerator(true_df):
-    """Yields a set of N sequences of length M, chosen randomly from the whole sequence."""
+    """Yields a set of N sequences of length M, chosen randomly from the whole sequence.
+    true_df is full scale
+    """
     batch_size = 10 # sequences
     sequence_length = 3600 # seconds!  want the window to see whole events
     window_size = batch_size * sequence_length
     while True:
         start = random.randint(0, len(true_df) - window_size)
         batch_df = true_df.loc[start:start + window_size - 1]
-        x_batch = batch_df['mains'].to_numpy().reshape(-1, sequence_length, 1)
+        x_batch = (batch_df['mains'].to_numpy() / SCALE).reshape(-1, sequence_length, 1)
         y_batch = batch_df.drop(columns='mains').to_numpy().reshape(-1, sequence_length, len(true_df.columns) - 1)
         yield(x_batch, {'category_output':y_batch, 'mains_output':x_batch})
 
 def predict_and_evaluate(test_df, loads, model):
+    """test_df is full scale"""
 
-    predictions = model.predict(test_df['mains'].to_numpy().reshape(1, -1, 1)) # all at once
+    predictions = model.predict((test_df['mains'].to_numpy() / SCALE).reshape(1, -1, 1)) # all at once
 
     # categorical prediction
     y_pred = predictions[0]
@@ -154,7 +160,7 @@ def predict_and_evaluate(test_df, loads, model):
     y_pred = np.around(y_pred).astype(int)
 
     # predicted loads (last layer weights)
-    predicted_loads = model.layers[-1].get_weights()[0].reshape(-1)
+    predicted_loads = (model.layers[-1].get_weights()[0] * SCALE).reshape(-1)
     print("predicted load comparison:")
     print(np.column_stack((np.around(loads.transpose(),3), np.around(predicted_loads,3))))
     print("predicted load mse:")
@@ -169,8 +175,8 @@ def predict_and_evaluate(test_df, loads, model):
     print("category recall (labeled events that were predicted):")
     print(sklearn.metrics.recall_score(y_true, y_pred, average=None))
 
-    # mains prediction
-    x_pred = predictions[1]
+    # mains prediction (full scale)
+    x_pred = predictions[1] * SCALE
 
     print("mains mse:")
     print(sklearn.metrics.mean_squared_error(test_df['mains'].to_numpy(), x_pred.reshape(-1)))
@@ -189,19 +195,20 @@ def train_model(model, gen, vgen):
     loss_weights = { "category_output": 1.0, "mains_output": 0.0 }
     model.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
     tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/classifier", histogram_freq=1)
-    model.fit(x=gen, epochs=2000, verbose=1, callbacks=[tb], validation_data=vgen, steps_per_epoch=7, validation_steps=1)
+    model.fit(x=gen, epochs=800, verbose=1, callbacks=[tb], validation_data=vgen, steps_per_epoch=7, validation_steps=1)
     for l in model.layers[:-1]:
         l.trainable = False
     loss_weights = { "category_output": 0.0, "mains_output": 1.0 }
     model.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
     tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/mains", histogram_freq=1)
-    model.fit(x=gen, epochs=2000, verbose=1, callbacks=[tb], validation_data=vgen, steps_per_epoch=7, validation_steps=1)
+    model.fit(x=gen, epochs=300, verbose=1, callbacks=[tb], validation_data=vgen, steps_per_epoch=7, validation_steps=1)
     print("done training!")
 
 def sec2str(x):
     return str(datetime.timedelta(seconds=int(x)))
 
 def make_events(df):
+    """ df is full scale """
     for col in true_df.columns:
         if col == 'mains':
             continue
