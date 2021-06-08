@@ -1,4 +1,5 @@
 """multi-label classification using toy dataset"""
+import datetime
 import isodate
 import matplotlib.pyplot as plt # type: ignore
 import numpy as np
@@ -197,9 +198,26 @@ def train_model(model, gen, vgen):
     model.fit(x=gen, epochs=2000, verbose=1, callbacks=[tb], validation_data=vgen, steps_per_epoch=7, validation_steps=1)
     print("done training!")
 
+def sec2str(x):
+    return str(datetime.timedelta(seconds=int(x)))
+
+def make_events(df):
+    for col in true_df.columns:
+        if col == 'mains':
+            continue
+        yyy = true_df[col].astype(bool).reset_index()
+        yyy['g'] = yyy[col].diff().cumsum().fillna(0)
+        events = yyy[yyy[col]==True].groupby(['g'])['index'].agg(['first','last'])
+        print("===========")
+        print(col)
+        print(events.apply(np.vectorize(sec2str)))
+
 with tf.device('/cpu:0'):
     true_df, loads = make_realistic_data()
+    make_events(true_df)
+
     gen = datagenerator(true_df)
+
 
     val_df, _ = make_realistic_data()
     vgen = datagenerator(val_df)
