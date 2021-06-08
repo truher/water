@@ -61,12 +61,12 @@ def make_realistic_data():
     df['mains'] = np.maximum(df['mains'], 0)  # negative noise is nonphysical, don't try to predict it
     return df, loads
 
-def plot_frames(tdf, c1df):
-    fix, axs = plt.subplots(len(tdf.columns), sharex=True)
-    for i, col in enumerate(tdf):
-        axs[i].plot(tdf[col], label=col+' observed')
-        if c1df is not None:
-            axs[i].plot(c1df[col], label=col+' predicted')
+def plot_frames(true_df, pred_df):
+    fix, axs = plt.subplots(len(true_df.columns), sharex=True)
+    for i, col in enumerate(true_df):
+        axs[i].plot(true_df[col], label=col+' true')
+        if pred_df is not None:
+            axs[i].plot(pred_df[col], label=col+' predicted')
         axs[i].legend(loc='upper left')
     plt.show()
 
@@ -79,13 +79,7 @@ class IL(tf.keras.layers.Layer):
         #tf.print("input[0][0] len", len(inputs[0][0])) # 1
         return super().call(inputs, *args, **kwargs)
 
-with tf.device('/cpu:0'):
-
-    # make some data
-    df, loads = make_realistic_data()
-    #plot_frames(df, None)
-    classes = len(df.columns) - 1
-
+def make_model(classes):
     # make the model
     i = tf.keras.Input(shape=(None,1),
         name="input_layer")
@@ -128,107 +122,91 @@ with tf.device('/cpu:0'):
     m = tf.keras.Model(inputs=i, outputs=outputs)
 
     tf.keras.utils.plot_model(m, 'model.png', show_shapes=True)
-    losses = {
-        "category_output": "binary_crossentropy",
-        "mains_output": "mean_squared_error"
-    }
-    loss_weights = { "category_output": 1.0, "mains_output": 0.0 }
-    o.trainable = True
-    m.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
 
-    # model is done!
+    return m
 
-    x = df['mains'].values
-    print("x len", len(x))
-    y = df.drop(columns='mains').values
-    print("y len", len(y))
-
-    samples = len(df.index)
-
-    batch_size = 10
-    #sequence_length = 111
+def datagenerator(true_df):
+    """Yields a set of N sequences of length M, chosen randomly from the whole sequence."""
+    batch_size = 10 # sequences
     sequence_length = 3600 # seconds!  want the window to see whole events
-    all_samples = (batch_size * sequence_length) * (len(x) // (batch_size * sequence_length))
-    x_sequences = x[0:all_samples].reshape(-1, sequence_length, 1)
-    y_sequences = y[0:all_samples].reshape(-1, sequence_length, classes)
-    # this is the original dataframe again :-) TODO: use it
-    sequences = np.concatenate((x_sequences, y_sequences), axis=2)
+    window_size = batch_size * sequence_length
+    while True:
+        start = random.randint(0, len(true_df) - window_size)
+        batch_df = true_df.loc[start:start + window_size - 1]
+        x_batch = batch_df['mains'].to_numpy().reshape(-1, sequence_length, 1)
+        y_batch = batch_df.drop(columns='mains').to_numpy().reshape(-1, sequence_length, len(true_df.columns) - 1)
+        yield(x_batch, {'category_output':y_batch, 'mains_output':x_batch})
 
-    def datagenerator():
-        while True:
-            np.random.shuffle(sequences) # TODO: overlapping sequences
-            batches = sequences.reshape(-1, batch_size, sequence_length, classes + 1)
-            for n in range(len(batches)): # one epoch
-                x_batch = batches[n][...,np.newaxis,0]
-                y_batch = batches[n][...,1:]
-                yield(x_batch, {'category_output':y_batch, 'mains_output':x_batch})
+def predict_and_evaluate(test_df, loads, model):
 
-    print(m.summary())
+    predictions = model.predict(test_df['mains'].to_numpy().reshape(1, -1, 1)) # all at once
 
-    gen = datagenerator()
-    vgen = datagenerator()
- 
-    tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/classifier", histogram_freq=1)
-
-    print("train classifier ...")
-    m.fit(x=gen, epochs=2000, verbose=1, callbacks=[tb], 
-          validation_data=vgen, steps_per_epoch=7, validation_steps=1)
-
-    i.trainable = False
-    conv.trainable = False
-    conv_2.trainable = False
-    conv_3.trainable = False
-    c.trainable = False
-    o.trainable = False
-    loss_weights = { "category_output": 0.0, "mains_output": 1.0 }
-    m.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
-    print(m.summary())
-    tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/mains", histogram_freq=1)
-
-    print("train mains output ...")
-    m.fit(x=datagenerator(), epochs=2000, verbose=1, callbacks=[tb],
-          validation_data=vgen, steps_per_epoch=7, validation_steps=1)
-    print("done training!")
-
-    #y1 = m.predict(xtrain)
-    y1 = m.predict(x_sequences)
-
-    c1 = y1[0] # categorical prediction
-    shaped_c1 = np.around(c1.reshape(-1,classes), 2)
-    shaped_training = y_sequences.reshape(-1,classes).astype(int)
+    # categorical prediction
+    y_pred = predictions[0]
+    print("y_pred shape:", y_pred.shape)
+    y_pred = np.around(y_pred.reshape(-1, len(test_df.columns) - 1), 2)
+    y_true = test_df.drop(columns='mains').to_numpy()
 
     print("raw category result on training set:")
-    raw_cat_result = np.concatenate((shaped_training, shaped_c1), axis=1)
+    raw_cat_result = np.concatenate((y_true, y_pred), axis=1)
     np.savetxt('raw_cat_result.tsv', raw_cat_result, fmt='%.1f', delimiter='\t')
-    shaped_c1 = np.around(shaped_c1).astype(int)
+    y_pred = np.around(y_pred).astype(int)
 
-    m1 = y1[1] # mains prediction
-    print("mains result on training set:")
-
-    predicted_loads = mo.get_weights()[0].reshape(-1)
+    # predicted loads (last layer weights)
+    predicted_loads = model.layers[-1].get_weights()[0].reshape(-1)
     print("predicted load comparison:")
     print(np.column_stack((np.around(loads.transpose(),3), np.around(predicted_loads,3))))
     print("predicted load mse:")
-    print(sklearn.metrics.mean_squared_error(loads.transpose(),predicted_loads))
+    print(sklearn.metrics.mean_squared_error(loads.transpose(), predicted_loads))
 
     print("category accuracy:")
-    print(sklearn.metrics.accuracy_score(shaped_training, shaped_c1))
+    print(sklearn.metrics.accuracy_score(y_true, y_pred))
 
     print("category precision (predicted events that were labeled):")
-    print(sklearn.metrics.precision_score(shaped_training, shaped_c1, average=None))
+    print(sklearn.metrics.precision_score(y_true, y_pred, average=None))
 
     print("category recall (labeled events that were predicted):")
-    print(sklearn.metrics.recall_score(shaped_training, shaped_c1, average=None))
+    print(sklearn.metrics.recall_score(y_true, y_pred, average=None))
+
+    # mains prediction
+    x_pred = predictions[1]
 
     print("mains mse:")
-    print(sklearn.metrics.mean_squared_error(x_sequences.reshape(-1), m1.reshape(-1)))
+    print(sklearn.metrics.mean_squared_error(test_df['mains'].to_numpy(), x_pred.reshape(-1)))
 
     print("confusion matrices")
-    print(sklearn.metrics.multilabel_confusion_matrix(shaped_training, shaped_c1))
+    print(sklearn.metrics.multilabel_confusion_matrix(y_true, y_pred))
 
-    tdf = pd.DataFrame(shaped_training, columns=df.columns[:-1])
-    tdf['mains'] = x_sequences.reshape(-1)
-    c1df = pd.DataFrame(shaped_c1, columns=df.columns[:-1])
-    c1df['mains'] = m1.reshape(-1)
+    pred_df = pd.DataFrame(y_pred, columns=test_df.columns[:-1])
+    pred_df['mains'] = x_pred.reshape(-1)
 
-    plot_frames(tdf, c1df)
+    plot_frames(test_df, pred_df)
+
+def train_model(model, gen, vgen):
+    print("train classifier ...")
+    losses = { "category_output": "binary_crossentropy", "mains_output": "mean_squared_error" }
+    loss_weights = { "category_output": 1.0, "mains_output": 0.0 }
+    model.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
+    tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/classifier", histogram_freq=1)
+    model.fit(x=gen, epochs=2000, verbose=1, callbacks=[tb], validation_data=vgen, steps_per_epoch=7, validation_steps=1)
+    for l in model.layers[:-1]:
+        l.trainable = False
+    loss_weights = { "category_output": 0.0, "mains_output": 1.0 }
+    model.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
+    tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/mains", histogram_freq=1)
+    model.fit(x=gen, epochs=2000, verbose=1, callbacks=[tb], validation_data=vgen, steps_per_epoch=7, validation_steps=1)
+    print("done training!")
+
+with tf.device('/cpu:0'):
+    true_df, loads = make_realistic_data()
+    gen = datagenerator(true_df)
+
+    val_df, _ = make_realistic_data()
+    vgen = datagenerator(val_df)
+
+    test_df, _ = make_realistic_data()
+
+    model = make_model(len(true_df.columns) - 1)
+    print(model.summary())
+    train_model(model, gen, vgen)
+    predict_and_evaluate(test_df, loads, model)
