@@ -85,27 +85,21 @@ class IL(tf.keras.layers.Layer):
 
 def make_model(classes):
     # make the model
-    i = tf.keras.Input(shape=(None,1),
+    x = tf.keras.Input(shape=(None,1),
         name="input_layer")
-    i2 = IL()
 
-    conv = tf.keras.layers.Conv1D(filters=17, kernel_size=15, activation='relu', padding='same', dilation_rate = 4,
-        name="conv_layer")
-    #pool = tf.keras.layers.MaxPool1D(pool_size=13,
-        #name="pool_layer")
-    conv_2 = tf.keras.layers.Conv1D(filters=19, kernel_size=15, activation='relu', padding='same', dilation_rate = 16,
-        name="conv_layer_2")
-    #pool_2 = tf.keras.layers.MaxPool1D(pool_size=13,
-        #name="pool_layer_2")
-    conv_3 = tf.keras.layers.Conv1D(filters=23, kernel_size=15, activation='relu', padding='same', dilation_rate = 64,
-        name="conv_layer_3")
+    x = tf.keras.layers.Conv1D(filters=7, kernel_size=15, activation='relu', padding='same', dilation_rate = 4,
+        name="conv_layer")(x)
 
-    c = tf.keras.layers.Dense(units=classes*10, activation='relu',
-        name="middle_layer")
+    x = tf.keras.layers.MaxPool1D(pool_size=7, padding='same',
+        name="pool_layer")(x)
 
-    o = tf.keras.layers.Dense(units=classes,
+    x = tf.keras.layers.Dense(units=classes*10, activation='relu',
+        name="middle_layer")(x)
+
+    x = tf.keras.layers.Dense(units=classes,
         activation='sigmoid',
-        name="category_output")
+        name="category_output")(x)
 
     # predict the input from *just* the category output.
     mo = tf.keras.layers.Dense(units=1,
@@ -116,14 +110,7 @@ def make_model(classes):
         bias_constraint=tf.keras.constraints.MinMaxNorm(min_value=0.0, max_value=0.0, rate=1.0),
         name="mains_output")
 
-    #conv_branch = conv_3(pool_2(conv_2(pool(conv(i)))))
-    conv_branch = conv_3(conv_2(conv(i2(i))))
-    internal_branch = c(conv_branch)
-    category_branch = o(internal_branch)
-    mains_branch = mo(category_branch)
-    outputs = [category_branch, mains_branch]
-
-    m = tf.keras.Model(inputs=i, outputs=outputs)
+    m = tf.keras.Model(inputs=i, outputs=[x, mo(x)])
 
     tf.keras.utils.plot_model(m, 'model.png', show_shapes=True)
 
@@ -207,7 +194,7 @@ def train_model(model, gen, vgen):
 def sec2str(x):
     return str(datetime.timedelta(seconds=int(x)))
 
-def make_events(df):
+def make_events(true_df):
     """ df is full scale """
     for col in true_df.columns:
         if col == 'mains':
