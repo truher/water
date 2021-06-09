@@ -85,14 +85,17 @@ class IL(tf.keras.layers.Layer):
 
 def make_model(classes):
     # make the model
-    x = tf.keras.Input(shape=(None,1),
+    i = tf.keras.Input(shape=(None,1),
         name="input_layer")
 
     x = tf.keras.layers.Conv1D(filters=7, kernel_size=15, activation='relu', padding='same', dilation_rate = 4,
-        name="conv_layer")(x)
+        name="conv_layer")(i)
 
-    x = tf.keras.layers.MaxPool1D(pool_size=7, padding='same',
-        name="pool_layer")(x)
+    x = tf.keras.layers.Dropout(rate=0.5,
+        name="dropout_layer")(x)
+
+    #x = tf.keras.layers.MaxPool1D(pool_size=7, strides=1, padding='same',
+    #    name="pool_layer")(x)
 
     x = tf.keras.layers.Dense(units=classes*10, activation='relu',
         name="middle_layer")(x)
@@ -143,7 +146,7 @@ def predict_and_evaluate(test_df, loads, model):
 
     print("raw category result on training set:")
     #raw_cat_result = np.concatenate((y_true, y_pred), axis=1)
-    np.savetxt('raw_cat_result.tsv', raw_cat_result, fmt='%.1f', delimiter='\t')
+    #np.savetxt('raw_cat_result.tsv', raw_cat_result, fmt='%.1f', delimiter='\t')
     y_pred = np.around(y_pred).astype(int)
 
     # predicted loads (last layer weights)

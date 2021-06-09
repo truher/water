@@ -262,7 +262,7 @@ def predict_and_evaluate(test_df, loads, model):
 
     print("raw category result on training set:")
     #raw_cat_result = np.concatenate((y_true, y_pred), axis=1)
-    np.savetxt('raw_cat_result.tsv', raw_cat_result, fmt='%.1f', delimiter='\t')
+    #np.savetxt('raw_cat_result.tsv', raw_cat_result, fmt='%.1f', delimiter='\t')
     y_pred = np.around(y_pred).astype(int)
 
     # predicted loads (last layer weights)
