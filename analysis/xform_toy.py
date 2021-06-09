@@ -1,5 +1,7 @@
-"""transformer experiments"""
+"""transformer experiments
+"""
 import datetime
+from functools import partial
 import isodate
 import matplotlib.pyplot as plt # type: ignore
 import numpy as np
@@ -7,9 +9,99 @@ import pandas as pd # type: ignore
 import random
 import tensorflow as tf # type: ignore
 import sklearn.metrics # type: ignore
+from tensorflow_addons.layers import MultiHeadAttention
 
 print("available tensorflow devices:", tf.config.list_physical_devices())
 print("eager:", tf.executing_eagerly())
+
+class Time2Vec(tf.keras.layers.Layer):
+    def __init__(self, kernel_size=1):
+        super(Time2Vec, self).__init__(trainable=True, name='Time2VecLayer')
+        self.k = kernel_size
+    
+    def build(self, input_shape):
+        # trend
+        self.wb = self.add_weight(name='wb',shape=(input_shape[1],),initializer='uniform',trainable=True)
+        self.bb = self.add_weight(name='bb',shape=(input_shape[1],),initializer='uniform',trainable=True)
+        # periodic
+        self.wa = self.add_weight(name='wa',shape=(1, input_shape[1], self.k),initializer='uniform',trainable=True)
+        self.ba = self.add_weight(name='ba',shape=(1, input_shape[1], self.k),initializer='uniform',trainable=True)
+        super(Time2Vec, self).build(input_shape)
+    
+    def call(self, inputs, **kwargs):
+        bias = self.wb * inputs + self.bb
+        dp = K.dot(inputs, self.wa) + self.ba
+        wgts = K.sin(dp) # or K.cos(.)
+
+        ret = K.concatenate([K.expand_dims(bias, -1), wgts], -1)
+        ret = K.reshape(ret, (-1, inputs.shape[1]*(self.k+1)))
+        return ret
+    
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], input_shape[1]*(self.k + 1))
+
+
+class AttentionBlock(tf.keras.Model):
+    def __init__(self, name='AttentionBlock', num_heads=2, head_size=128, ff_dim=None, dropout=0, **kwargs):
+        super().__init__(name=name, **kwargs)
+
+        if ff_dim is None:
+            ff_dim = head_size
+
+        self.attention = MultiHeadAttention(num_heads=num_heads, head_size=head_size, dropout=dropout)
+        self.attention_dropout = tf.keras.layers.Dropout(dropout)
+        self.attention_norm = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+
+        self.ff_conv1 = tf.keras.layers.Conv1D(filters=ff_dim, kernel_size=1, activation='relu')
+        # self.ff_conv2 at build()
+        self.ff_dropout = tf.keras.layers.Dropout(dropout)
+        self.ff_norm = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+
+    def build(self, input_shape):
+        self.ff_conv2 = tf.keras.layers.Conv1D(filters=input_shape[-1], kernel_size=1) 
+
+    def call(self, inputs):
+        x = self.attention([inputs, inputs])
+        x = self.attention_dropout(x)
+        x = self.attention_norm(inputs + x)
+
+        x = self.ff_conv1(x)
+        x = self.ff_conv2(x)
+        x = self.ff_dropout(x)
+
+        x = self.ff_norm(inputs + x)
+        return x
+
+class ModelTrunk(tf.keras.Model):
+    def __init__(self, name='ModelTrunk', time2vec_dim=1, num_heads=2, head_size=128, ff_dim=None, num_layers=1, dropout=0, **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.time2vec = Time2Vec(kernel_size=time2vec_dim)
+        if ff_dim is None:
+            ff_dim = head_size
+        self.dropout = dropout
+        self.attention_layers = [AttentionBlock(num_heads=num_heads, head_size=head_size, ff_dim=ff_dim, dropout=dropout) for _ in range(num_layers)]
+
+        
+    def call(self, inputs):
+        time_embedding = tf.keras.layers.TimeDistributed(self.time2vec)(inputs)
+        x = K.concatenate([inputs, time_embedding], -1)
+        for attention_layer in self.attention_layers:
+            x = attention_layer(x)
+
+        return K.reshape(x, (-1, x.shape[1] * x.shape[2])) # flat vector of features out
+
+def lr_scheduler(epoch, lr, warmup_epochs=15, decay_epochs=100, initial_lr=1e-6, base_lr=1e-3, min_lr=5e-5):
+    if epoch <= warmup_epochs:
+        pct = epoch / warmup_epochs
+        return ((base_lr - initial_lr) * pct) + initial_lr
+
+    if epoch > warmup_epochs and epoch < warmup_epochs+decay_epochs:
+        pct = 1 - ((epoch - warmup_epochs) / decay_epochs)
+        return ((base_lr - min_lr) * pct) + min_lr
+
+    return min_lr
+
+#callbacks += [keras.callbacks.LearningRateScheduler(partial(lr_scheduler, ...), verbose=0)]
 
 def flow(df, name, interval):
     start_str, duration_str = interval.split('/')
@@ -169,7 +261,7 @@ def predict_and_evaluate(test_df, loads, model):
     y_true = test_df.drop(columns='mains').to_numpy()
 
     print("raw category result on training set:")
-    raw_cat_result = np.concatenate((y_true, y_pred), axis=1)
+    #raw_cat_result = np.concatenate((y_true, y_pred), axis=1)
     np.savetxt('raw_cat_result.tsv', raw_cat_result, fmt='%.1f', delimiter='\t')
     y_pred = np.around(y_pred).astype(int)
 
@@ -209,13 +301,15 @@ def train_model(model, gen, vgen):
     loss_weights = { "category_output": 1.0, "mains_output": 0.0 }
     model.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
     tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/classifier", histogram_freq=1)
-    model.fit(x=gen, epochs=200, verbose=1, callbacks=[tb], validation_data=vgen, steps_per_epoch=7, validation_steps=1)
+    callbacks = [tb, tf.keras.callbacks.LearningRateScheduler(lr_scheduler, verbose=0)]
+    model.fit(x=gen, epochs=200, verbose=1, callbacks=callbacks, validation_data=vgen, steps_per_epoch=7, validation_steps=1)
     for l in model.layers[:-1]:
         l.trainable = False
     loss_weights = { "category_output": 0.0, "mains_output": 1.0 }
     model.compile(loss=losses, loss_weights=loss_weights, optimizer='adam')
     tb = tf.keras.callbacks.TensorBoard(log_dir="tensorboard_log/mains", histogram_freq=1)
-    model.fit(x=gen, epochs=200, verbose=1, callbacks=[tb], validation_data=vgen, steps_per_epoch=7, validation_steps=1)
+    callbacks = [tb, tf.keras.callbacks.LearningRateScheduler(lr_scheduler, verbose=0)]
+    model.fit(x=gen, epochs=200, verbose=1, callbacks=callbacks, validation_data=vgen, steps_per_epoch=7, validation_steps=1)
     print("done training!")
 
 def sec2str(x):

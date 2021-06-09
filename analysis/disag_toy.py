@@ -155,7 +155,7 @@ def predict_and_evaluate(test_df, loads, model):
     y_true = test_df.drop(columns='mains').to_numpy()
 
     print("raw category result on training set:")
-    raw_cat_result = np.concatenate((y_true, y_pred), axis=1)
+    #raw_cat_result = np.concatenate((y_true, y_pred), axis=1)
     np.savetxt('raw_cat_result.tsv', raw_cat_result, fmt='%.1f', delimiter='\t')
     y_pred = np.around(y_pred).astype(int)
 
